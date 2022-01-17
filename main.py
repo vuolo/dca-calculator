@@ -8,7 +8,7 @@ import os
 
 from secrets import ALPHA_VANTAGE_API_TOKEN
 
-symbol = 'CBOE'
+symbol = 'wfc'.upper()
 USE_LOCAL_DATA = True # True to use local json data saved in /data/{symbol}/; False to use API below
 BASE_API_URL = f'https://www.alphavantage.co/query?apikey={ALPHA_VANTAGE_API_TOKEN}&symbol={symbol}'
 
@@ -93,13 +93,22 @@ while len(cash_flow_data['annualReports']) > min_length_annual_reports:
 # add parameter title to column
 columns.append('[1.1] Steady Inventory & Net Earnings Rise?')
 
-# for companies that have no inventory only calculate this parameter using ebitda
-no_inventory_present = 1 if balance_sheet_data['annualReports'][-1]['inventory'] == 'None' else 0
+# get all inventory values
+inventories = []
+for i in range(0, len(balance_sheet_data['annualReports'])):
+    if balance_sheet_data['annualReports'][i]['inventory'] != 'None':
+        inventories.append(int(balance_sheet_data['annualReports'][i]['inventory']))
+
+# don't include inventory in calculations if the inventory isn't reported
+has_inventory = 1 if len(inventories) > 0 else 0
 
 # calculate average inventory percent change (if present)
-if not no_inventory_present:
+if has_inventory:
     inventory_percent_changes = []
     for i in range(1, len(balance_sheet_data['annualReports'])):
+        # validate we are comparing actual numbers and not against missing data
+        if balance_sheet_data['annualReports'][i]['inventory'] == 'None' or balance_sheet_data['annualReports'][i - 1]['inventory'] == 'None':
+            continue
         inventory_percent_changes.append((int(balance_sheet_data['annualReports'][i]['inventory']) - int(balance_sheet_data['annualReports'][i - 1]['inventory'])) / int(balance_sheet_data['annualReports'][i - 1]['inventory']))
     average_inventory_percent_change = sum(inventory_percent_changes) / len(inventory_percent_changes)
 
@@ -110,7 +119,7 @@ for i in range(1, len(income_statement_data['annualReports'])):
 average_ebitda_percent_change = sum(ebitda_percent_changes) / len(ebitda_percent_changes)
 
 # add parameter answer to series
-if no_inventory_present:
+if not has_inventory:
     parameter_answers.append(1 if average_ebitda_percent_change > 0 else 0)
 else:
     parameter_answers.append(1 if average_inventory_percent_change > 0 and average_ebitda_percent_change > 0 else 0)
@@ -178,6 +187,9 @@ def get_outliers(data, m = 2.5): # the larger m is, the less outliers are remove
 # calculate average property/plant/equipment change
 property_plant_equipment_percent_changes = []
 for i in range(1, len(balance_sheet_data['annualReports'])):
+    # validate we are comparing actual numbers and not against missing data
+    if balance_sheet_data['annualReports'][i]['propertyPlantEquipment'] == 'None' or balance_sheet_data['annualReports'][i - 1]['propertyPlantEquipment'] == 'None':
+        continue
     property_plant_equipment_percent_changes.append((int(balance_sheet_data['annualReports'][i]['propertyPlantEquipment']) - int(balance_sheet_data['annualReports'][i - 1]['propertyPlantEquipment'])) / int(balance_sheet_data['annualReports'][i - 1]['propertyPlantEquipment']))
 average_property_plant_equipment_percent_change = sum(property_plant_equipment_percent_changes) / len(property_plant_equipment_percent_changes)
 
@@ -368,6 +380,9 @@ columns.append('[8.3] Above Average Retained Earnings Growth Rate (≥ 17%)?')
 # calculate average retained earnings
 retained_earnings_percent_changes = []
 for i in range(1, len(balance_sheet_data['annualReports'])):
+    # validate we are comparing actual numbers and not against missing data
+    if balance_sheet_data['annualReports'][i]['retainedEarnings'] == 'None' or balance_sheet_data['annualReports'][i - 1]['retainedEarnings'] == 'None':
+        continue
     retained_earnings_percent_changes.append((int(balance_sheet_data['annualReports'][i]['retainedEarnings']) - int(balance_sheet_data['annualReports'][i - 1]['retainedEarnings'])) / int(balance_sheet_data['annualReports'][i - 1]['retainedEarnings']))
 average_retained_earnings_percent_change = sum(retained_earnings_percent_changes) / len(retained_earnings_percent_changes)
 
@@ -445,12 +460,21 @@ total_evaluated_parameters += 1
 # add parameter title to column
 columns.append('[11] Steady Rise in Goodwill?')
 
-if balance_sheet_data['annualReports'][i - 1]['goodwill'] == 'None':
+# get all goodwills values
+goodwills = []
+for i in range(0, len(balance_sheet_data['annualReports'])):
+    if balance_sheet_data['annualReports'][i]['goodwill'] != 'None':
+        goodwills.append(int(balance_sheet_data['annualReports'][i]['goodwill']))
+
+if len(goodwills) <= 1:
     parameter_answers.append(-1)
 else:
     # calculate average retained earnings
     goodwill_percent_changes = []
     for i in range(1, len(balance_sheet_data['annualReports'])):
+        # validate we are comparing actual numbers and not against missing data
+        if balance_sheet_data['annualReports'][i]['goodwill'] == 'None' or balance_sheet_data['annualReports'][i - 1]['goodwill'] == 'None':
+            continue
         goodwill_percent_changes.append((int(balance_sheet_data['annualReports'][i]['goodwill']) - int(balance_sheet_data['annualReports'][i - 1]['goodwill'])) / int(balance_sheet_data['annualReports'][i - 1]['goodwill']))
     average_goodwill_percent_change = sum(goodwill_percent_changes) / len(goodwill_percent_changes)
 
