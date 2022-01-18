@@ -6,17 +6,11 @@ import xlsxwriter # library to write to excel
 import math # math module
 import os
 
-from secrets import FMP_CLOUD_API_TOKEN
+from secrets import ALPHA_VANTAGE_API_TOKEN
 
-symbol = 'CBOE'.upper()
+symbol = 'CGC'.upper()
 USE_LOCAL_DATA = False # True to use local json data saved in /data/{symbol}/; False to use API below
-BASE_API_URL = f'https://fmpcloud.io/api/v3/financial-statement/{symbol}?limit=120&apikey={FMP_CLOUD_API_TOKEN}'
-
-# make directory: data
-try:
-    os.mkdir(f'data')
-except OSError as error:
-    pass
+BASE_API_URL = f'https://www.alphavantage.co/query?apikey={ALPHA_VANTAGE_API_TOKEN}&symbol={symbol}'
 
 # make directory: data/{symbol}
 try:
@@ -48,19 +42,19 @@ if USE_LOCAL_DATA:
     cash_flow_file.close()
 else:
     # fetch income statement & save data to .json in data/{symbol}/
-    income_statement_api_url = BASE_API_URL.replace('financial', 'income')
+    income_statement_api_url = f'{BASE_API_URL}&function=INCOME_STATEMENT'
     income_statement_data = requests.get(income_statement_api_url).json()
     with open(f'data/{symbol}/INCOME_STATEMENT.json', 'w') as outfile:
         json.dump(income_statement_data, outfile)
 
     # fetch balance sheet & save data to .json in data/{symbol}/
-    balance_sheet_api_url = BASE_API_URL.replace('financial', 'balance-sheet')
+    balance_sheet_api_url = f'{BASE_API_URL}&function=BALANCE_SHEET'
     balance_sheet_data = requests.get(balance_sheet_api_url).json()
     with open(f'data/{symbol}/BALANCE_SHEET.json', 'w') as outfile:
         json.dump(balance_sheet_data, outfile)
 
     # fetch cash flow & save data to .json in data/{symbol}/
-    cash_flow_api_url = BASE_API_URL.replace('financial', 'cash-flow')
+    cash_flow_api_url = f'{BASE_API_URL}&function=CASH_FLOW'
     cash_flow_data = requests.get(cash_flow_api_url).json()
     with open(f'data/{symbol}/CASH_FLOW.json', 'w') as outfile:
         json.dump(cash_flow_data, outfile)
@@ -77,20 +71,18 @@ total_dca_score = 0
 total_evaluated_parameters = 0
 
 # sort financial statements in ascending order 
-income_statement_data.reverse()
-balance_sheet_data.reverse()
-cash_flow_data.reverse()
+income_statement_data['annualReports'].reverse()
+balance_sheet_data['annualReports'].reverse()
+cash_flow_data['annualReports'].reverse()
 
 # make all annual reports the same length for correct comparisons
-min_length_annual_reports = min(len(income_statement_data), len(balance_sheet_data), len(cash_flow_data))
-if min_length_annual_reports > 8: # force to only use annual reports from last 8 years
-    min_length_annual_reports = 8
-while len(income_statement_data) > min_length_annual_reports:
-    income_statement_data.pop(0)
-while len(balance_sheet_data) > min_length_annual_reports:
-    balance_sheet_data.pop(0)
-while len(cash_flow_data) > min_length_annual_reports:
-    cash_flow_data.pop(0)
+min_length_annual_reports = min(len(income_statement_data['annualReports']), len(balance_sheet_data['annualReports']), len(cash_flow_data['annualReports']))
+while len(income_statement_data['annualReports']) > min_length_annual_reports:
+    income_statement_data['annualReports'].pop(0)
+while len(balance_sheet_data['annualReports']) > min_length_annual_reports:
+    balance_sheet_data['annualReports'].pop(0)
+while len(cash_flow_data['annualReports']) > min_length_annual_reports:
+    cash_flow_data['annualReports'].pop(0)
 
 # ----------- 1. Inventory & Net Earnings (BS & CFS)
 # > 1.1 Inventory and EBITDA on a steady rise. Pull Inventory and EBITDA values from the BS and CFS respectively. Check for steady increase of values over the past 4 years.
@@ -103,9 +95,9 @@ columns.append('[1.1] Steady Inventory & Net Earnings Rise?')
 
 # get all inventory values
 inventories = []
-for i in range(0, len(balance_sheet_data)):
-    if balance_sheet_data[i]['inventory'] != 0.0:
-        inventories.append(balance_sheet_data[i]['inventory'])
+for i in range(0, len(balance_sheet_data['annualReports'])):
+    if balance_sheet_data['annualReports'][i]['inventory'] != 'None':
+        inventories.append(int(balance_sheet_data['annualReports'][i]['inventory']))
 
 # don't include inventory in calculations if the inventory isn't reported
 has_inventory = 1 if len(inventories) > 0 else 0
@@ -113,20 +105,17 @@ has_inventory = 1 if len(inventories) > 0 else 0
 # calculate average inventory percent change (if present)
 if has_inventory:
     inventory_percent_changes = []
-    for i in range(1, len(balance_sheet_data)):
+    for i in range(1, len(balance_sheet_data['annualReports'])):
         # validate we are comparing actual numbers and not against missing data
-        if balance_sheet_data[i]['inventory'] == 0.0 or balance_sheet_data[i - 1]['inventory'] == 0.0:
+        if balance_sheet_data['annualReports'][i]['inventory'] == 'None' or balance_sheet_data['annualReports'][i - 1]['inventory'] == 'None':
             continue
-        inventory_percent_changes.append((balance_sheet_data[i]['inventory'] - balance_sheet_data[i - 1]['inventory']) / balance_sheet_data[i - 1]['inventory'])
+        inventory_percent_changes.append((int(balance_sheet_data['annualReports'][i]['inventory']) - int(balance_sheet_data['annualReports'][i - 1]['inventory'])) / int(balance_sheet_data['annualReports'][i - 1]['inventory']))
     average_inventory_percent_change = sum(inventory_percent_changes) / len(inventory_percent_changes)
 
 # calculate average ebitda percent change
 ebitda_percent_changes = []
-for i in range(1, len(income_statement_data)):
-    # validate we are comparing actual numbers and not against missing data
-    if balance_sheet_data[i]['ebitda'] == 0.0 or balance_sheet_data[i - 1]['ebitda'] == 0.0:
-        continue
-    ebitda_percent_changes.append((income_statement_data[i]['ebitda'] - income_statement_data[i - 1]['ebitda']) / income_statement_data[i - 1]['ebitda'])
+for i in range(1, len(income_statement_data['annualReports'])):
+    ebitda_percent_changes.append((int(income_statement_data['annualReports'][i]['ebitda']) - int(income_statement_data['annualReports'][i - 1]['ebitda'])) / int(income_statement_data['annualReports'][i - 1]['ebitda']))
 average_ebitda_percent_change = sum(ebitda_percent_changes) / len(ebitda_percent_changes)
 
 # add parameter answer to series
@@ -143,9 +132,9 @@ columns.append('[1.2] No Research and Development?')
 
 # get all research and development values
 research_and_developments = []
-for i in range(0, len(income_statement_data)):
-    if income_statement_data[i]['researchAndDevelopmentExpenses'] != 0.0:
-        research_and_developments.append(income_statement_data[i]['researchAndDevelopmentExpenses'])
+for i in range(0, len(income_statement_data['annualReports'])):
+    if income_statement_data['annualReports'][i]['researchAndDevelopment'] != 'None':
+        research_and_developments.append(int(income_statement_data['annualReports'][i]['researchAndDevelopment']))
 
 # check if company has research and development
 has_research_and_development = 1 if len(research_and_developments) > 0 else 0
@@ -166,13 +155,13 @@ columns.append('[2] Earning Power - History of EBITDA Covering Current Liabiliti
 
 # get ebitdas
 ebitdas = []
-for i in range(0, len(income_statement_data)):
-    ebitdas.append(income_statement_data[i]['ebitda'])
+for i in range(0, len(income_statement_data['annualReports'])):
+    ebitdas.append(int(income_statement_data['annualReports'][i]['ebitda']))
 
 # get current liabilities
 current_liabilities = []
-for i in range(0, len(balance_sheet_data)):
-    current_liabilities.append(balance_sheet_data[i]['totalCurrentLiabilities'])
+for i in range(0, len(balance_sheet_data['annualReports'])):
+    current_liabilities.append(int(balance_sheet_data['annualReports'][i]['totalCurrentLiabilities']))
 
 # add parameter answer to series
 parameter_answers.append(1 if np.all(np.asarray(ebitdas) > np.asarray(current_liabilities)) else 0)
@@ -197,11 +186,11 @@ def get_outliers(data, m = 2.5): # the larger m is, the less outliers are remove
 
 # calculate average property/plant/equipment change
 property_plant_equipment_percent_changes = []
-for i in range(1, len(balance_sheet_data)):
+for i in range(1, len(balance_sheet_data['annualReports'])):
     # validate we are comparing actual numbers and not against missing data
-    if balance_sheet_data[i]['propertyPlantEquipmentNet'] == 0.0 or balance_sheet_data[i - 1]['propertyPlantEquipmentNet'] == 0.0:
+    if balance_sheet_data['annualReports'][i]['propertyPlantEquipment'] == 'None' or balance_sheet_data['annualReports'][i - 1]['propertyPlantEquipment'] == 'None':
         continue
-    property_plant_equipment_percent_changes.append((balance_sheet_data[i]['propertyPlantEquipmentNet'] - balance_sheet_data[i - 1]['propertyPlantEquipmentNet']) / balance_sheet_data[i - 1]['propertyPlantEquipmentNet'])
+    property_plant_equipment_percent_changes.append((int(balance_sheet_data['annualReports'][i]['propertyPlantEquipment']) - int(balance_sheet_data['annualReports'][i - 1]['propertyPlantEquipment'])) / int(balance_sheet_data['annualReports'][i - 1]['propertyPlantEquipment']))
 average_property_plant_equipment_percent_change = sum(property_plant_equipment_percent_changes) / len(property_plant_equipment_percent_changes)
 
 # calculate number of outliers (to check for no major jumps/spikes)
@@ -210,9 +199,9 @@ num_outliers = len(property_plant_equipment_outliers)
 
 # get all goodwills values
 goodwills = []
-for i in range(0, len(balance_sheet_data)):
-    if balance_sheet_data[i]['goodwill'] != 0.0:
-        goodwills.append(balance_sheet_data[i]['goodwill'])
+for i in range(0, len(balance_sheet_data['annualReports'])):
+    if balance_sheet_data['annualReports'][i]['goodwill'] != 'None':
+        goodwills.append(int(balance_sheet_data['annualReports'][i]['goodwill']))
 
 # check if company has goodwill reported
 has_goodwill = 1 if len(goodwills) > 0 else 0
@@ -234,7 +223,7 @@ if num_outliers > 0 and has_goodwill:
                 else:
                     outliers_goodwill_verified.append(0) # mark as unverified
     except:
-        # errors here mean we cannot goodwill verify the spike...
+        # errors here mean we cannot goodwill verify the spike
         outliers_goodwill_verified.append(0)
     parameter_answers.append(1 if average_property_plant_equipment_percent_change > 0 and np.all(np.asarray(outliers_goodwill_verified) == 1) else 0)
 else:
@@ -257,8 +246,8 @@ columns.append('[4.2] Great Average Return on Total Assets (≥ 17%)?')
 
 # calculate return on total assets
 returns_on_total_assets = []
-for i in range(0, len(balance_sheet_data)):
-    returns_on_total_assets.append(ebitdas[i] / balance_sheet_data[i]['totalAssets'])
+for i in range(0, len(balance_sheet_data['annualReports'])):
+    returns_on_total_assets.append(ebitdas[i] / int(balance_sheet_data['annualReports'][i]['totalAssets']))
 average_returns_on_total_assets = sum(returns_on_total_assets) / len(returns_on_total_assets)
 
 # add 4.1 parameter answer to series
@@ -285,11 +274,12 @@ columns.append('[5.1] Healthy Long-Term Debt?')
 
 # calculate average long-term debt to total assets ratio
 ltd_to_ta_ratios = []
-for i in range(0, len(balance_sheet_data)):
-    # do not include years with long term debt = 0.0
-    if balance_sheet_data[i]['longTermDebt'] == 0.0:
+for i in range(0, len(balance_sheet_data['annualReports'])):
+    # do not include years with long term debt = 'None'
+    if balance_sheet_data['annualReports'][i]['longTermDebt'] == 'None':
+        # num_years_skipped_shareholders_equity += 1
         continue
-    ltd_to_ta_ratios.append(balance_sheet_data[i]['longTermDebt'] / balance_sheet_data[i]['totalAssets'])
+    ltd_to_ta_ratios.append(int(balance_sheet_data['annualReports'][i]['longTermDebt']) / int(balance_sheet_data['annualReports'][i]['totalAssets']))
 average_ltd_to_ta_ratio = sum(ltd_to_ta_ratios) / len(ltd_to_ta_ratios)
 
 # add parameter answer to series
@@ -303,7 +293,7 @@ columns.append('[5.2] EBITDA Can Pay Off Long-Term Debt Within 4 Years?')
 
 # calculate years to pay off long-term debt
 last_years_ebitda = ebitdas[-1]
-last_years_ltd = balance_sheet_data[-1]['longTermDebt']
+last_years_ltd = int(balance_sheet_data['annualReports'][-1]['longTermDebt'])
 
 # add parameter answer to series
 parameter_answers.append(1 if last_years_ltd / last_years_ebitda <= 4 else 0)
@@ -325,12 +315,12 @@ columns.append('[6.1] Has Negative Shareholder\'s Equity For Any Given Year?')
 shareholders_equities = []
 num_years_skipped_shareholders_equity = 0
 has_negative_shareholders_equity = 0
-for i in range(0, len(balance_sheet_data)):
-    # do not include years with total shareholders equity = 0.0
-    if balance_sheet_data[i]['totalStockholdersEquity'] == 0.0:
+for i in range(0, len(balance_sheet_data['annualReports'])):
+    # do not include years with total shareholders equity = 'None'
+    if balance_sheet_data['annualReports'][i]['totalShareholderEquity'] == 'None':
         num_years_skipped_shareholders_equity += 1
         continue
-    shareholders_equities.append(balance_sheet_data[i]['totalStockholdersEquity'])
+    shareholders_equities.append(int(balance_sheet_data['annualReports'][i]['totalShareholderEquity']))
     if shareholders_equities[i - num_years_skipped_shareholders_equity] < 0:
         has_negative_shareholders_equity = 1
 
@@ -343,15 +333,12 @@ columns.append('[6.2] Good Average Treasury Stock Adjusted Debt to Shareholder\'
 
 # calculate average DSER (Debt to Shareholder's Equity)
 dsers = []
-for i in range(0, len(balance_sheet_data)):
+for i in range(0, len(balance_sheet_data['annualReports'])):
     # validate we are comparing actual numbers and not against missing data
-    if balance_sheet_data[i]['totalStockholdersEquity'] == 'None':
+    if balance_sheet_data['annualReports'][i]['totalShareholderEquity'] == 'None':
         continue
-    # TODO find treasury stock value from api...
-    dsers.append(balance_sheet_data[i]['totalLiabilities'] / (balance_sheet_data[i]['totalStockholdersEquity'] + (0 if balance_sheet_data[i]['treasuryStock'] == 0.0 else balance_sheet_data[i]['treasuryStock'])))
+    dsers.append(int(balance_sheet_data['annualReports'][i]['totalLiabilities']) / (int(balance_sheet_data['annualReports'][i]['totalShareholderEquity']) + (0 if balance_sheet_data['annualReports'][i]['treasuryStock'] == 'None' else int(balance_sheet_data['annualReports'][i]['treasuryStock']))))
 average_dser = sum(dsers) / len(dsers)
-
-# TODO finish converting api from alpha vantage to FMP cloud OR my own api...
 
 # add parameter answer to series
 parameter_answers.append(-1 if has_negative_shareholders_equity else 1 if average_dser <= 1.0 else 0)
@@ -378,9 +365,9 @@ columns.append('[7] Absence of Preferred Stock?')
 
 # get all preferred stocks values
 preferred_stocks = []
-for i in range(0, len(cash_flow_data)):
-    if cash_flow_data[i]['proceedsFromIssuanceOfPreferredStock'] != 'None':
-        preferred_stocks.append(int(cash_flow_data[i]['proceedsFromIssuanceOfPreferredStock']))
+for i in range(0, len(cash_flow_data['annualReports'])):
+    if cash_flow_data['annualReports'][i]['proceedsFromIssuanceOfPreferredStock'] != 'None':
+        preferred_stocks.append(int(cash_flow_data['annualReports'][i]['proceedsFromIssuanceOfPreferredStock']))
 
 print(preferred_stocks)
 
@@ -407,11 +394,11 @@ columns.append('[8.3] Above Average Retained Earnings Growth Rate (≥ 17%)?')
 
 # calculate average retained earnings
 retained_earnings_percent_changes = []
-for i in range(1, len(balance_sheet_data)):
+for i in range(1, len(balance_sheet_data['annualReports'])):
     # validate we are comparing actual numbers and not against missing data
-    if balance_sheet_data[i]['retainedEarnings'] == 'None' or balance_sheet_data[i - 1]['retainedEarnings'] == 'None':
+    if balance_sheet_data['annualReports'][i]['retainedEarnings'] == 'None' or balance_sheet_data['annualReports'][i - 1]['retainedEarnings'] == 'None':
         continue
-    retained_earnings_percent_changes.append((int(balance_sheet_data[i]['retainedEarnings']) - int(balance_sheet_data[i - 1]['retainedEarnings'])) / int(balance_sheet_data[i - 1]['retainedEarnings']))
+    retained_earnings_percent_changes.append((int(balance_sheet_data['annualReports'][i]['retainedEarnings']) - int(balance_sheet_data['annualReports'][i - 1]['retainedEarnings'])) / int(balance_sheet_data['annualReports'][i - 1]['retainedEarnings']))
 average_retained_earnings_percent_change = sum(retained_earnings_percent_changes) / len(retained_earnings_percent_changes)
 
 # add 8.1 parameter answer to series
@@ -440,9 +427,9 @@ columns.append('[9] Presence of Treasury Stock?')
 
 # get all treasury stocks values
 treasury_stocks = []
-for i in range(0, len(balance_sheet_data)):
-    if balance_sheet_data[i]['treasuryStock'] != 'None':
-        treasury_stocks.append(int(balance_sheet_data[i]['treasuryStock']))
+for i in range(0, len(balance_sheet_data['annualReports'])):
+    if balance_sheet_data['annualReports'][i]['treasuryStock'] != 'None':
+        treasury_stocks.append(int(balance_sheet_data['annualReports'][i]['treasuryStock']))
 
 # check if company has treasury stock
 has_treasury_stock = 1 if len(treasury_stocks) > 0 else 0
@@ -493,11 +480,11 @@ if len(goodwills) <= 1:
 else:
     # calculate average retained earnings
     goodwill_percent_changes = []
-    for i in range(1, len(balance_sheet_data)):
+    for i in range(1, len(balance_sheet_data['annualReports'])):
         # validate we are comparing actual numbers and not against missing data
-        if balance_sheet_data[i]['goodwill'] == 'None' or balance_sheet_data[i - 1]['goodwill'] == 'None':
+        if balance_sheet_data['annualReports'][i]['goodwill'] == 'None' or balance_sheet_data['annualReports'][i - 1]['goodwill'] == 'None':
             continue
-        goodwill_percent_changes.append((int(balance_sheet_data[i]['goodwill']) - int(balance_sheet_data[i - 1]['goodwill'])) / int(balance_sheet_data[i - 1]['goodwill']))
+        goodwill_percent_changes.append((int(balance_sheet_data['annualReports'][i]['goodwill']) - int(balance_sheet_data['annualReports'][i - 1]['goodwill'])) / int(balance_sheet_data['annualReports'][i - 1]['goodwill']))
     average_goodwill_percent_change = sum(goodwill_percent_changes) / len(goodwill_percent_changes)
 
     parameter_answers.append(1 if average_goodwill_percent_change > 0 else 0)
