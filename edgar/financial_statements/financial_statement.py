@@ -57,18 +57,215 @@ class FinancialStatement:
 
     def getAttribute(self, attribute: str, filing: dict):
 
-        print(f"""
-            if attribute == '{attribute}':
-                return None""")
+        # TODO: finish for all attributes
+        if attribute == 'EBITDA':
+            return None
+
+        if attribute == 'accountsPayable':
+            return None
+
+        if attribute == 'capitalSurplus':
+            return None
+
+        if attribute == 'cashChange':
+            return None
+
+        if attribute == 'cashFlow':
+            return None
+
+        if attribute == 'cashFlowFinancing':
+            return None
+
+        if attribute == 'changesInInventories':
+            return None
+
+        if attribute == 'changesInReceivables':
+            return None
+
+        if attribute == 'commonStock':
+            return None
+
+        if attribute == 'costOfRevenue':
+            return None
 
         if attribute == 'currency':
             return filing['currency']
+
+        if attribute == 'currentAssets':
+            return None
+
+        if attribute == 'currentCash':
+            return None
+
+        if attribute == 'currentDebt':
+            return None
+
+        if attribute == 'currentLongTermDebt':
+            return None
+
+        if attribute == 'depreciation':
+            return None
+
+        if attribute == 'dividendsPaid':
+            return None
+
+        if attribute == 'ebit':
+            return None
+
+        if attribute == 'exchangeRateEffect':
+            return None
+
+        if attribute == 'filingType':
+            return None
+
+        if attribute == 'fiscalDate':
+            return None
+
+        if attribute == 'fiscalQuarter':
+            return 0 if self.period == 'annual' else None # TODO: find current quarter
+
         if attribute == 'fiscalYear':
             return filing['fiscalYear']
+
         if attribute == 'goodwill':
             for unit in self.companyFacts['facts']['us-gaap']['Goodwill']['units'][filing['currency']]:
                 if filing['fiscalYear'] == unit['fy']:
                     return unit['val']
+
+        if attribute == 'grossProfit':
+            return None
+
+        if attribute == 'incomeTax':
+            return None
+
+        if attribute == 'intangibleAssets':
+            return None
+
+        if attribute == 'inventory':
+            return None
+
+        if attribute == 'interestIncome':
+            return None
+
+        if attribute == 'investingActivityOther':
+            return None
+
+        if attribute == 'investments':
+            return None
+
+        if attribute == 'longTermDebt':
+            return None
+
+        if attribute == 'longTermInvestments':
+            return None
+
+        if attribute == 'minorityInterest':
+            return None
+
+        if attribute == 'netBorrowings':
+            return None
+
+        if attribute == 'netIncome':
+            return None
+
+        if attribute == 'netIncomeBasic':
+            return None
+
+        if attribute == 'netTangibleAssets':
+            return None
+
+        if attribute == 'operatingExpense':
+            return None
+
+        if attribute == 'operatingIncome':
+            return None
+
+        if attribute == 'operatingRevenue':
+            return None
+
+        if attribute == 'otherAssets':
+            return None
+
+        if attribute == 'otherCurrentAssets':
+            return None
+
+        if attribute == 'otherCurrentLiabilities':
+            return None
+
+        if attribute == 'otherIncomeExpenseNet':
+            return None
+
+        if attribute == 'otherLiabilities':
+            return None
+
+        if attribute == 'pretaxIncome':
+            return None
+
+        if attribute == 'propertyPlantEquipment':
+            return None
+
+        if attribute == 'receivables':
+            return None
+
+        if attribute == 'reportDate':
+            return None
+
+        if attribute == 'researchAndDevelopment':
+            return None
+
+        if attribute == 'retainedEarnings':
+            return None
+
+        if attribute == 'revenue':
+            return None
+
+        if attribute == 'sellingGeneralAndAdmin':
+            return None
+
+        if attribute == 'shareholderEquity':
+            return None
+
+        if attribute == 'shortTermDebt':
+            return None
+
+        if attribute == 'shortTermInvestments':
+            return None
+
+        if attribute == 'symbol':
+            return None
+
+        if attribute == 'totalAssets':
+            return None
+
+        if attribute == 'totalCash':
+            return None
+
+        if attribute == 'totalDebt':
+            return None
+
+        if attribute == 'totalInvestingCashFlows':
+            return None
+
+        if attribute == 'totalLiabilities':
+            return None
+
+        if attribute == 'totalRevenue':
+            return None
+
+        if attribute == 'treasuryStock':
+            return None
+
+        if attribute == 'id':
+            return None
+
+        if attribute == 'key':
+            return None
+
+        if attribute == 'subkey':
+            return None
+
+        if attribute == 'updated':
+            return None
     
     def constructFilings(self) -> dict:
         # TODO: setup to make it use 10Q forms instead of 10K if period='quarter'

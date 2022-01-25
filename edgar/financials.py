@@ -30,7 +30,7 @@ class Financials():
         # sec provided list of tickers : cik
         self.ticker_resource = 'https://www.sec.gov/include/ticker.txt'
         
-        # request 
+        # request
         self.tickersCIKList = requests.get(self.ticker_resource, headers = { 'User-Agent': 'Sample Company Name AdminContact@<sample company domain>.com'}).text.split()
 
         return self.tickersCIKList[self.tickersCIKList.index(ticker.lower()) + 1]
@@ -71,9 +71,3 @@ class Financials():
 
     def getCashFlow(self, raw=False) -> dict | cF.CashFlow:
         return self.cashFlow.get(raw)
-
-    # https://data.sec.gov/api/xbrl/companyconcept/CIK0001326801/us-gaap/Goodwill.json
-    # this gives us goodwill values (FB ex)
-
-    # https://data.sec.gov/api/xbrl/companyconcept/CIK0000320193/us-gaap/InventoryNet.json
-    # this gives us all Net Inventory Values (AAPL ex)
