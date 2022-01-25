@@ -7,7 +7,7 @@ class BalanceSheet(FinancialStatement):
     
     def construct(self, period='annual') -> dict:
         self.balanceSheet = {
-            'symbol': self.ticker,
+            'ticker': self.ticker,
             'name': self.companyFacts['entityName'],
             'balanceSheets': [
                 {

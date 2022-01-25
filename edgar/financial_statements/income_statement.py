@@ -7,7 +7,7 @@ class IncomeStatement(FinancialStatement):
     
     def construct(self, period='annual') -> dict:
         self.incomeStatement = {
-            'symbol': self.ticker,
+            'ticker': self.ticker,
             'incomeStatements': []
         }
 

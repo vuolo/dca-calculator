@@ -2,18 +2,16 @@ from pprint import pprint
 from edgar.client import EdgarClient
 
 # Initialize the Edgar Client
-edgar_client = EdgarClient()
+edgarClient = EdgarClient()
 
 # Fetch financial information using ticker symbol
-financials = edgar_client.financials('HD')
+ticker = 'MSFT'
+financials = edgarClient.financials(ticker)
 
 aggregateFinancials = financials.getFinancials()
 # incomeStatement = financials.getIncomeStatement()
 # balanceSheet = financials.getBalanceSheet()
 # cashFlow = financials.getCashFlow()
 
-financials_s = aggregateFinancials['financials']
-# for f_s in financials_s:
-    # pprint(f_s['fiscalYear'])
-    # pprint(f_s['goodwill'])
-    # print()
+# [print(f"\n{ticker}'s {financial['fiscalYear']} Goodwill: \n{financial['goodwill']}") for financial in aggregateFinancials['financials']]
+[print(f"\n{ticker}'s {financial['fiscalYear']} Long Term Debt: \n{financial['longTermDebt']}") for financial in aggregateFinancials['financials']]

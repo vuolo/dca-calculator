@@ -4,6 +4,8 @@ from edgar.financial_statements import income_statement as iS
 from edgar.financial_statements import balance_sheet as bS
 from edgar.financial_statements import cash_flow as cF
 
+HEADERS = { 'User-Agent': 'Sample Company Name AdminContact@<sample company domain>.com' }
+
 class Financials():
 
     def __init__(self, ticker: str) -> None:
@@ -18,10 +20,11 @@ class Financials():
         self.api_resource = 'https://data.sec.gov'
         self.endpoint = f'/api/xbrl/companyfacts/CIK{self.cik}.json'
 
+        # print url of data were processing
         print(self.api_resource + self.endpoint)
 
         # request the company facts and decode it
-        self.companyFacts = requests.get(self.api_resource + self.endpoint, headers = { 'User-Agent': 'Sample Company Name AdminContact@<sample company domain>.com'}).json()
+        self.companyFacts = requests.get(self.api_resource + self.endpoint, headers=HEADERS).json()
 
         # construct financial statements from company facts
         self.constructFinancials()
@@ -31,7 +34,7 @@ class Financials():
         self.ticker_resource = 'https://www.sec.gov/include/ticker.txt'
         
         # request
-        self.tickersCIKList = requests.get(self.ticker_resource, headers = { 'User-Agent': 'Sample Company Name AdminContact@<sample company domain>.com'}).text.split()
+        self.tickersCIKList = requests.get(self.ticker_resource, headers=HEADERS).text.split()
 
         return self.tickersCIKList[self.tickersCIKList.index(ticker.lower()) + 1]
     
@@ -44,7 +47,7 @@ class Financials():
     
     def constructFinancials(self) -> None:
         # setup generic aggregate financials dict for easy access to all financial variables
-        self.aggregateFinancials = fS.FinancialStatement(ticker=self.ticker, companyFacts=self.companyFacts).aggregateFinancials
+        self.aggregateFinancials = fS.FinancialStatement(self.ticker, self.companyFacts).aggregateFinancials
 
         # construct statements
         self.constructIncomeStatement()
@@ -52,13 +55,13 @@ class Financials():
         self.constructCashFlow()
 
     def constructIncomeStatement(self) -> None:
-        self.incomeStatement = iS.IncomeStatement(ticker=self.ticker, companyFacts=self.companyFacts)
+        self.incomeStatement = iS.IncomeStatement(self.ticker, self.companyFacts)
 
     def constructBalanceSheet(self) -> None:
-        self.balanceSheet =  bS.BalanceSheet(ticker=self.ticker, companyFacts=self.companyFacts)
+        self.balanceSheet =  bS.BalanceSheet(self.ticker, self.companyFacts)
 
     def constructCashFlow(self) -> None:
-        self.cashFlow =  cF.CashFlow(ticker=self.ticker, companyFacts=self.companyFacts)
+        self.cashFlow =  cF.CashFlow(self.ticker, self.companyFacts)
 
     def getFinancials(self) -> dict:
         return self.aggregateFinancials
