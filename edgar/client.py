@@ -1,4 +1,4 @@
-from edgar.company_facts import Financials
+from edgar.financials import Financials
 
 class EdgarClient():
 

@@ -5,7 +5,11 @@ from edgar.client import EdgarClient
 edgar_client = EdgarClient()
 
 # Fetch financial information using ticker symbol
-financials = edgar_client.financials('AAPL')
+financials = edgar_client.financials('HD')
 
-# pprint(financials.cik)
-# pprint(financials.companyFacts['facts']['us-gaap']['Goodwill'])
+aggregateFinancials = financials.getFinancials()
+# incomeStatement = financials.getIncomeStatement()
+# balanceSheet = financials.getBalanceSheet()
+# cashFlow = financials.getCashFlow()
+
+# pprint(aggregateFinancials)
