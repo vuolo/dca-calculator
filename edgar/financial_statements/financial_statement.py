@@ -1,24 +1,97 @@
+from locale import currency
+from pprint import pprint
+
+from attr import attr
+
 class FinancialStatement:
 
     def __init__(self, ticker: str, companyFacts: dict, period='annual') -> None:
         self.ticker = ticker
         self.companyFacts = companyFacts
+        self.period = period
 
         self.aggregateFinancials = None
         self.incomeStatement = None
         self.balanceSheet = None
         self.cashFlow = None
 
-        self.construct(period)
+        self.construct()
 
-    def construct(self, period='annual') -> dict:
+    def construct(self) -> dict:
+        # setup return variable
         self.aggregateFinancials = {
             'symbol': self.ticker,
             'name': self.companyFacts['entityName'],
             'financials': []
         }
 
-        cur_financials = {
+        # filings are 10K forms if period='annual', and 10Q forms if period='quarter'
+        filings = self.constructFilings()
+
+        # begin building financials
+        for filing in filings:
+            # construct template
+            curFinancials = self.constructTemplate()
+
+            # setup attributes
+            for attribute in curFinancials.keys():
+                curFinancials[attribute] = self.getAttribute(attribute, filing)
+
+            # append current financials
+            self.aggregateFinancials['financials'].append(curFinancials)
+
+        # # EBITDA formula 1: EBITDA = Operating Income + Depreciation & Amortization
+        # # > self.companyFacts['facts']['us-gaap']['OperatingIncomeLoss'] + self.companyFacts['facts']['us-gaap']['DepreciationAndAmortization']
+        # print("EBITDA (1): ")
+        # # print(self.companyFacts['facts']['us-gaap']['OperatingIncomeLoss'] + self.companyFacts['facts']['us-gaap']['DepreciationAndAmortization'])
+        # print(self.companyFacts['facts']['us-gaap']['OperatingIncomeLoss']["units"]["USD"][-6]['val'] + self.companyFacts['facts']['us-gaap']['DepreciationAndAmortization']["units"]["USD"][-6]['val'])
+
+        # # EBITDA formula 2: EBITDA = Net Income + Taxes + Interest Expense + Depreciation & Amortization
+        # # > self.companyFacts['facts']['us-gaap']['NetIncomeLoss'] + self.companyFacts['facts']['us-gaap']['CurrentIncomeTaxExpenseBenefit'] + self.companyFacts['facts']['us-gaap']['InterestExpense'] + self.companyFacts['facts']['us-gaap']['DepreciationAndAmortization']
+        # print("EBITDA (2): ")
+        # print(self.companyFacts['facts']['us-gaap']['NetIncomeLoss']["units"]["USD"][-6]['val'] + self.companyFacts['facts']['us-gaap']['CurrentIncomeTaxExpenseBenefit']["units"]["USD"][-6]['val'] + self.companyFacts['facts']['us-gaap']['InterestExpense']["units"]["USD"][-6]['val'] + self.companyFacts['facts']['us-gaap']['DepreciationAndAmortization']["units"]["USD"][-6]['val'])
+
+        # # "IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments"
+
+        return self.aggregateFinancials
+
+    def getAttribute(self, attribute: str, filing: dict):
+
+        print(f"""
+            if attribute == '{attribute}':
+                return None""")
+
+        if attribute == 'currency':
+            return filing['currency']
+        if attribute == 'fiscalYear':
+            return filing['fiscalYear']
+        if attribute == 'goodwill':
+            for unit in self.companyFacts['facts']['us-gaap']['Goodwill']['units'][filing['currency']]:
+                if filing['fiscalYear'] == unit['fy']:
+                    return unit['val']
+    
+    def constructFilings(self) -> dict:
+        # TODO: setup to make it use 10Q forms instead of 10K if period='quarter'
+        # use the entity public float to get a list of 10K filings
+        currency = entityPublicFloat = list(self.companyFacts['facts']['dei']['EntityPublicFloat']['units'])[0]
+        entityPublicFloat = self.companyFacts['facts']['dei']['EntityPublicFloat']['units'][currency]
+        filings = []
+        for epf in entityPublicFloat:
+            filings.append({
+                'currency': currency,
+                'endDate': epf['end'],
+                'filingType': epf['form'],
+                'filedDate': epf['filed'],
+                'fiscalDate': None, # TODO ??
+                'fiscalQuarter': 0, # TODO setup (1, 2, 3, 4 for 10Q forms [period='quarter])
+                # 'fiscalYear': epf['fy'] + 1 # TODO figure out if + 1 is needed here...
+                'fiscalYear': int(epf['filed'].split('-')[0])
+            })
+
+        return filings
+
+    def constructTemplate(self) -> dict:
+        return {
             "EBITDA": None, # 17719601200,
             "accountsPayable": None, # 42998973564,
             "capitalSurplus": None, # null,
@@ -89,48 +162,6 @@ class FinancialStatement:
             "subkey": None, # "quarterly",
             "updated": None, # 1671015835008
         }
-        # "currency": "USD",
-        
 
-        # "ebit": 15229091974,
-        # "exchangeRateEffect": null,
-        # "filingType": "10-K",
-        # "fiscalDate": "2020-10-17",
-        # "fiscalQuarter": 4,
-        # "fiscalYear": 2020,
-
-        # use the entity public float to get a list of 10K filings
-        currency = entityPublicFloat = list(self.companyFacts['facts']['dei']['EntityPublicFloat']['units'])[0]
-        cur_financials['currency'] = currency
-
-        entityPublicFloat = self.companyFacts['facts']['dei']['EntityPublicFloat']['units'][currency]
-        filings10K = []
-        for epf in entityPublicFloat:
-            filings10K.append({
-                "filingType": epf['form'],
-                "filedDate": epf['filed'],
-                "fiscalDate": None,
-                "fiscalQuarter": None,
-                "fiscalYear": epf['fy']
-            })
-
-        # EBITDA formula 1: EBITDA = Operating Income + Depreciation & Amortization
-        # > self.companyFacts['facts']['us-gaap']['OperatingIncomeLoss'] + self.companyFacts['facts']['us-gaap']['DepreciationAndAmortization']
-        print("EBITDA (1): ")
-        # print(self.companyFacts['facts']['us-gaap']['OperatingIncomeLoss'] + self.companyFacts['facts']['us-gaap']['DepreciationAndAmortization'])
-        print(self.companyFacts['facts']['us-gaap']['OperatingIncomeLoss']["units"]["USD"][-6]['val'] + self.companyFacts['facts']['us-gaap']['DepreciationAndAmortization']["units"]["USD"][-6]['val'])
-
-        # EBITDA formula 2: EBITDA = Net Income + Taxes + Interest Expense + Depreciation & Amortization
-        # > self.companyFacts['facts']['us-gaap']['NetIncomeLoss'] + self.companyFacts['facts']['us-gaap']['CurrentIncomeTaxExpenseBenefit'] + self.companyFacts['facts']['us-gaap']['InterestExpense'] + self.companyFacts['facts']['us-gaap']['DepreciationAndAmortization']
-        print("EBITDA (2): ")
-        print(self.companyFacts['facts']['us-gaap']['NetIncomeLoss']["units"]["USD"][-6]['val'] + self.companyFacts['facts']['us-gaap']['CurrentIncomeTaxExpenseBenefit']["units"]["USD"][-6]['val'] + self.companyFacts['facts']['us-gaap']['InterestExpense']["units"]["USD"][-6]['val'] + self.companyFacts['facts']['us-gaap']['DepreciationAndAmortization']["units"]["USD"][-6]['val'])
-
-        # "IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments"
-
-        # add current financials to arr
-        self.aggregateFinancials['financials'].append(cur_financials)
-
-        return self.aggregateFinancials
-    
     def get(self, raw=False) -> dict:
         return self if raw else self.aggregateFinancials if self.aggregateFinancials != None else self.incomeStatement if self.incomeStatement != None else self.balanceSheet if self.balanceSheet != None else self.cashFlow if self.cashFlow != None else {}

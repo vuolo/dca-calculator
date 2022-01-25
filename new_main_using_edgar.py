@@ -12,4 +12,8 @@ aggregateFinancials = financials.getFinancials()
 # balanceSheet = financials.getBalanceSheet()
 # cashFlow = financials.getCashFlow()
 
-# pprint(aggregateFinancials)
+financials_s = aggregateFinancials['financials']
+# for f_s in financials_s:
+    # pprint(f_s['fiscalYear'])
+    # pprint(f_s['goodwill'])
+    # print()
