@@ -2,10 +2,11 @@
 
 class FinancialStatement:
 
-    def __init__(self, ticker: str, companyFacts: dict, period='annual') -> None:
+    def __init__(self, ticker: str, companyFacts: dict, period='annual', USE_DEPRECIATED=False) -> None:
         self.ticker = ticker
         self.companyFacts = companyFacts
         self.period = period
+        self.USE_DEPRECIATED = USE_DEPRECIATED
         self.currency = "USD" # USD by default
 
         self.aggregateFinancials = None
@@ -16,12 +17,47 @@ class FinancialStatement:
         self.construct()
 
     def construct(self) -> dict:
+        if not self.USE_DEPRECIATED: # TODO: remove USE_DEPRECIATED... IN ALL FILES!
+            return {}
+
         # setup return variable
         self.aggregateFinancials = {
             'ticker': self.ticker,
-            'name': self.companyFacts['entityName'],
+            'name': self.companyFacts['forms'][0]['EntityRegistrantName'],
             'financials': []
         }
+
+        print(self.aggregateFinancials)
+        
+        # print certain company fact for all forms
+        for form in self.companyFacts['forms']:
+            # TODO: EBITDA = OperatingIncomeLoss + DepreciationAmortizationAndAccretionNet (or DepreciationAndAmortization or DepreciationDepletionAndAmortization???)
+            # TODO: to find EBITDA, use whatever EBITDA value is calculated first (use order below)
+            fact = 'LongTermDebtFairValue' # TODO: look at LongTermDebtFairValue for longTermDebt value?
+            if fact in form.keys():
+                print(f"fiscalYear: {form['DocumentFiscalYearFocus']}, {fact}: {form[fact]}")
+
+            fact = 'OperatingIncomeLoss'
+            if fact in form.keys():
+                print(f"fiscalYear: {form['DocumentFiscalYearFocus']}, {fact}: {form[fact]}")
+
+            fact = 'DepreciationDepletionAndAmortization'
+            if fact in form.keys():
+                print(f"fiscalYear: {form['DocumentFiscalYearFocus']}, {fact}: {form[fact]}")
+                print(f"fiscalYear: {form['DocumentFiscalYearFocus']}, {'EBITDA'}: {int(form['OperatingIncomeLoss']) + int(form['DepreciationDepletionAndAmortization'])}")
+
+            fact = 'DepreciationAmortizationAndAccretionNet'
+            if fact in form.keys():
+                print(f"fiscalYear: {form['DocumentFiscalYearFocus']}, {fact}: {form[fact]}")
+                print(f"fiscalYear: {form['DocumentFiscalYearFocus']}, {'EBITDA'}: {int(form['OperatingIncomeLoss']) + int(form['DepreciationAmortizationAndAccretionNet'])}")
+
+            fact = 'DepreciationAndAmortization'
+            if fact in form.keys():
+                print(f"fiscalYear: {form['DocumentFiscalYearFocus']}, {fact}: {form[fact]}")
+                print(f"fiscalYear: {form['DocumentFiscalYearFocus']}, {'EBITDA'}: {int(form['OperatingIncomeLoss']) + int(form['DepreciationAndAmortization'])}")
+            
+            print()
+        exit(0)
 
         # filings are 10K forms if period='annual', and 10Q forms if period='quarter'
         filings = self.constructFilings()
