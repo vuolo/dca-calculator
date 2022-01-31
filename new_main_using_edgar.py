@@ -5,7 +5,7 @@ from edgar.client import EdgarClient
 edgarClient = EdgarClient()
 
 # Fetch financial information using ticker symbol
-ticker = 'AAPL'
+ticker = 'CBOE'
 period = 'annual'
 financials = edgarClient.financials(ticker, period)
 

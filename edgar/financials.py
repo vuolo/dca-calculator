@@ -51,7 +51,7 @@ class Financials():
         }
 
         # TODO: remove this in post... THIS IS ONLY SO WE GET THE MOST RECENT PERIODS'S FILING for quick testing...
-        formIndexes = formIndexes[:1]
+        formIndexes = formIndexes[:2]
 
         # get company facts from each form
         for formIndex in formIndexes:
