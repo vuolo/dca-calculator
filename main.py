@@ -122,12 +122,16 @@ if has_inventory:
 
 # calculate average ebitda percent change
 ebitda_percent_changes = []
+
 for i in range(1, len(income_statement_data)):
+    print(income_statement_data[i]['ebitda'])
     # validate we are comparing actual numbers and not against missing data
-    if balance_sheet_data[i]['ebitda'] == 0.0 or balance_sheet_data[i - 1]['ebitda'] == 0.0:
+    if income_statement_data[i]['ebitda'] == 0.0 or income_statement_data[i - 1]['ebitda'] == 0.0:
         continue
     ebitda_percent_changes.append((income_statement_data[i]['ebitda'] - income_statement_data[i - 1]['ebitda']) / income_statement_data[i - 1]['ebitda'])
 average_ebitda_percent_change = sum(ebitda_percent_changes) / len(ebitda_percent_changes)
+
+exit(0)
 
 # add parameter answer to series
 if not has_inventory:

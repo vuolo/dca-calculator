@@ -1,9 +1,12 @@
+# TODO: if no yearly data exists, try to grab the last quarter that has data in it???
+
 class FinancialStatement:
 
     def __init__(self, ticker: str, companyFacts: dict, period='annual') -> None:
         self.ticker = ticker
         self.companyFacts = companyFacts
         self.period = period
+        self.currency = "USD" # USD by default
 
         self.aggregateFinancials = None
         self.incomeStatement = None
@@ -28,263 +31,273 @@ class FinancialStatement:
             # construct template
             curFinancials = self.constructTemplate()
 
-            # setup attributes
-            for attribute in curFinancials.keys():
-                curFinancials[attribute] = self.getAttribute(attribute, filing)
+            # setup concepts
+            for concept in curFinancials.keys(): curFinancials[concept] = self.getConcept(concept, filing['fiscalYear'])
 
             # append current financials
             self.aggregateFinancials['financials'].append(curFinancials)
+
+        return self.aggregateFinancials
+
+    def getConceptVal(self, rawConcept: str, fiscalYear: int):
+        total_return_val = 0
+        if not self.hasConcept(rawConcept): return None
+        for unit in self.getConceptUnits(rawConcept):
+            if fiscalYear == unit['fy']:
+                if self.period == 'annual' and unit['form'] == '10-K':
+                    return unit['val'] or None
+                elif self.period == 'quarter' and unit['form'] == '10-Q':
+                    total_return_val += unit['val'] or 0
+        
+        return total_return_val
+                
+    def getConceptUnits(self, concept: str, factsType='us-gaap', raw=False) -> bool:
+        if raw: return self.companyFacts['facts'][factsType][concept]['units']
+        else: return self.companyFacts['facts'][factsType][concept]['units'][self.currency]
+
+    def hasConcept(self, concept: str, factsType='us-gaap') -> bool:
+        return concept in self.companyFacts['facts'][factsType].keys()
+
+    def getConcept(self, concept: str, fiscalYear: int):
+        # TODO: finish implementation for all concepts
+        if concept == 'EBITDA':
+            # IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest????????
+            # income: 13510 (IncomeTaxesPaid or IncreaseDecreaseInIncomeTaxesReceivable or AccruedIncomeTaxesNoncurrent) + Depreciation & Amortization: (WeightedAverageNumberOfSharesOutstandingBasic?) 11152 + net interest expense: 2315 + income taxes: 6858
+            operatingIncome = self.getConceptVal('IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments', fiscalYear)
+            DA = self.getConceptVal('DepreciationAndAmortization', fiscalYear) or 0 # TODO: look into DepreciationAmortizationAndAccretionNet
+            # return operatingIncome + DA
+            return operatingIncome
+            # return DA
+
+            # # net income
+            # EB = self.getConceptVal('NetIncomeLoss', fiscalYear) or 0
+            # # interest
+            # I = self.getConceptVal('InterestExpenseDebtExcludingAmortization', fiscalYear) or 0
+            # # taxes
+            # T = self.getConceptVal('IncomeTaxExpenseBenefit', fiscalYear) or 0
+            # # depreciation + amortization
+            # DA = self.getConceptVal('DepreciationAndAmortization', fiscalYear) or 0 # TODO: look into DepreciationAmortizationAndAccretionNet
+            # print(f'EB: {EB}, I: {I}, T: {T}, DA: {DA} ({EB + I + T + DA})')
+            # return EB + I + T + DA
 
         # # EBITDA formula 1: EBITDA = Operating Income + Depreciation & Amortization
         # # > self.companyFacts['facts']['us-gaap']['OperatingIncomeLoss'] + self.companyFacts['facts']['us-gaap']['DepreciationAndAmortization']
         # print("EBITDA (1): ")
         # # print(self.companyFacts['facts']['us-gaap']['OperatingIncomeLoss'] + self.companyFacts['facts']['us-gaap']['DepreciationAndAmortization'])
         # print(self.companyFacts['facts']['us-gaap']['OperatingIncomeLoss']["units"]["USD"][-6]['val'] + self.companyFacts['facts']['us-gaap']['DepreciationAndAmortization']["units"]["USD"][-6]['val'])
-
-        # # EBITDA formula 2: EBITDA = Net Income + Taxes + Interest Expense + Depreciation & Amortization
-        # # > self.companyFacts['facts']['us-gaap']['NetIncomeLoss'] + self.companyFacts['facts']['us-gaap']['CurrentIncomeTaxExpenseBenefit'] + self.companyFacts['facts']['us-gaap']['InterestExpense'] + self.companyFacts['facts']['us-gaap']['DepreciationAndAmortization']
-        # print("EBITDA (2): ")
-        # print(self.companyFacts['facts']['us-gaap']['NetIncomeLoss']["units"]["USD"][-6]['val'] + self.companyFacts['facts']['us-gaap']['CurrentIncomeTaxExpenseBenefit']["units"]["USD"][-6]['val'] + self.companyFacts['facts']['us-gaap']['InterestExpense']["units"]["USD"][-6]['val'] + self.companyFacts['facts']['us-gaap']['DepreciationAndAmortization']["units"]["USD"][-6]['val'])
-
+        
         # # "IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments"
 
-        return self.aggregateFinancials
+        if concept == 'accountsPayable': return self.getConceptVal('AccountsPayableCurrent', fiscalYear)
 
-    def getAttribute(self, attribute: str, filing: dict):
-        # TODO: see if you can concise this func by making a func that takes in raw attribute name and gets its val
+        if concept == 'capitalSurplus': return self.getConceptVal('AdditionalPaidInCapitalCommonStock', fiscalYear)
 
-        # TODO: finish for all attributes
-        if attribute == 'EBITDA':
+        if concept == 'cashChange':
             return None
 
-        if attribute == 'accountsPayable':
-            return None
-
-        if attribute == 'capitalSurplus':
-            return None
-
-        if attribute == 'cashChange':
-            return None
-
-        if attribute == 'cashFlow':
-            return None
+        if concept == 'cashFlow': return self.getConceptVal('NetCashProvidedByUsedInOperatingActivities', fiscalYear)
 
-        if attribute == 'cashFlowFinancing':
+        if concept == 'cashFlowFinancing':
             return None
 
-        if attribute == 'changesInInventories':
+        if concept == 'changesInInventories':
             return None
 
-        if attribute == 'changesInReceivables':
+        if concept == 'changesInReceivables':
             return None
 
-        if attribute == 'commonStock':
-            return None
+        # TODO: verify if this is the right raw concept name to use
+        if concept == 'commonStock': return self.getConceptVal('CommonStockValue', fiscalYear)
 
-        if attribute == 'costOfRevenue':
+        if concept == 'costOfRevenue':
             return None
 
-        if attribute == 'currency':
-            return filing['currency']
+        if concept == 'currency': return self.currency
 
-        if attribute == 'currentAssets':
-            return None
+        if concept == 'currentAssets': return self.getConceptVal('AssetsCurrent', fiscalYear)
 
-        if attribute == 'currentCash':
+        if concept == 'currentCash':
             return None
 
-        if attribute == 'currentDebt':
+        if concept == 'currentDebt':
             return None
 
-        if attribute == 'currentLongTermDebt':
-            return None
+        if concept == 'currentLongTermDebt': return self.getConceptVal('LongTermDebtCurrent', fiscalYear)
 
-        if attribute == 'depreciation':
-            return None
+        if concept == 'depreciation': return self.getConceptVal('Depreciation', fiscalYear)
 
-        if attribute == 'dividendsPaid':
+        if concept == 'dividendsPaid':
             return None
 
-        if attribute == 'ebit':
+        if concept == 'ebit':
             return None
 
-        if attribute == 'exchangeRateEffect':
+        if concept == 'exchangeRateEffect':
             return None
 
-        if attribute == 'filingType':
+        if concept == 'filingType':
             return None
 
-        if attribute == 'fiscalDate':
+        if concept == 'fiscalDate':
             return None
 
-        if attribute == 'fiscalQuarter':
-            return 0 if self.period == 'annual' else None # TODO: find current quarter
+        if concept == 'fiscalQuarter': return 0 if self.period == 'annual' else None # TODO: find current quarter
 
-        if attribute == 'fiscalYear':
-            return filing['fiscalYear']
+        if concept == 'fiscalYear': return fiscalYear
 
-        if attribute == 'goodwill': # TODO: figure out what to do when Goodwill attribute doesn't exist...
-            for unit in self.companyFacts['facts']['us-gaap']['Goodwill']['units'][filing['currency']]:
-                if filing['fiscalYear'] == unit['fy']:
-                    return unit['val'] or None
+        if concept == 'goodwill': return self.getConceptVal('Goodwill', fiscalYear)
 
-        if attribute == 'grossProfit':
-            return None
+        if concept == 'grossProfit': return self.getConceptVal('GrossProfit', fiscalYear)
 
-        if attribute == 'incomeTax':
+        if concept == 'incomeTax':
             return None
 
-        if attribute == 'intangibleAssets':
+        if concept == 'intangibleAssets':
             return None
 
-        if attribute == 'inventory':
-            return None
+        if concept == 'inventory': return self.getConceptVal('InventoryNet', fiscalYear)
 
-        if attribute == 'interestIncome':
+        if concept == 'interestIncome':
             return None
 
-        if attribute == 'investingActivityOther':
+        if concept == 'investingActivityOther':
             return None
 
-        if attribute == 'investments':
+        if concept == 'investments':
             return None
 
-        if attribute == 'longTermDebt': # TODO: figure out what to do when LongTermDebtAndCapitalLeaseObligations attribute doesn't exist...
-            # TODO: figure out how to get CORRECT long term debt from MSFT...
-            # TODO: ask jonny if we want Net long term debt (LongTermDebtCurrent and multiply by -1) or LongTermDebtAndCapitalLeaseObligations / LongTermDebt
-            # for unit in self.companyFacts['facts']['us-gaap']['LongTermDebtAndCapitalLeaseObligations']['units'][filing['currency']]:
-            for unit in self.companyFacts['facts']['us-gaap']['LongTermDebtCurrent']['units'][filing['currency']]:
-                if filing['fiscalYear'] == unit['fy']:
-                    return unit['val'] or None
-            return None
+        if concept == 'longTermDebt':
+            # TODO: figure out how to get CORRECT long term debt from MSFT... LongTermDebtAndCapitalLeaseObligations / LongTermDebt???
+            return self.getConceptVal('LongTermDebt', fiscalYear)
 
-        if attribute == 'longTermInvestments':
+        if concept == 'longTermInvestments':
             return None
 
-        if attribute == 'minorityInterest':
+        if concept == 'minorityInterest':
             return None
 
-        if attribute == 'netBorrowings':
+        if concept == 'netBorrowings':
             return None
 
-        if attribute == 'netIncome':
+        if concept == 'netIncome':
             return None
 
-        if attribute == 'netIncomeBasic':
+        if concept == 'netIncomeBasic':
             return None
 
-        if attribute == 'netTangibleAssets':
+        if concept == 'netTangibleAssets':
             return None
 
-        if attribute == 'operatingExpense':
+        if concept == 'operatingExpense':
             return None
 
-        if attribute == 'operatingIncome':
+        if concept == 'operatingIncome':
             return None
 
-        if attribute == 'operatingRevenue':
+        if concept == 'operatingRevenue':
             return None
 
-        if attribute == 'otherAssets':
+        if concept == 'otherAssets':
             return None
 
-        if attribute == 'otherCurrentAssets':
+        if concept == 'otherCurrentAssets':
             return None
 
-        if attribute == 'otherCurrentLiabilities':
+        if concept == 'otherCurrentLiabilities':
             return None
 
-        if attribute == 'otherIncomeExpenseNet':
+        if concept == 'otherIncomeExpenseNet':
             return None
 
-        if attribute == 'otherLiabilities':
+        if concept == 'otherLiabilities':
             return None
 
-        if attribute == 'pretaxIncome':
+        if concept == 'pretaxIncome':
             return None
 
-        if attribute == 'propertyPlantEquipment':
+        if concept == 'propertyPlantEquipment':
             return None
 
-        if attribute == 'receivables':
+        if concept == 'receivables':
             return None
 
-        if attribute == 'reportDate':
+        if concept == 'reportDate':
             return None
 
-        if attribute == 'researchAndDevelopment':
+        if concept == 'researchAndDevelopment':
             return None
 
-        if attribute == 'retainedEarnings':
+        if concept == 'retainedEarnings':
             return None
 
-        if attribute == 'revenue':
+        if concept == 'revenue':
             return None
 
-        if attribute == 'sellingGeneralAndAdmin':
+        if concept == 'sellingGeneralAndAdmin':
             return None
 
-        if attribute == 'shareholderEquity':
+        if concept == 'shareholderEquity':
             return None
 
-        if attribute == 'shortTermDebt':
+        if concept == 'shortTermDebt':
             return None
 
-        if attribute == 'shortTermInvestments':
+        if concept == 'shortTermInvestments':
             return None
 
-        if attribute == 'symbol':
+        if concept == 'symbol':
             return None
 
-        if attribute == 'totalAssets':
+        if concept == 'totalAssets':
             return None
 
-        if attribute == 'totalCash':
+        if concept == 'totalCash':
             return None
 
-        if attribute == 'totalDebt':
+        if concept == 'totalDebt':
             return None
 
-        if attribute == 'totalInvestingCashFlows':
+        if concept == 'totalInvestingCashFlows':
             return None
 
-        if attribute == 'totalLiabilities':
+        if concept == 'totalLiabilities':
             return None
 
-        if attribute == 'totalRevenue':
+        if concept == 'totalRevenue':
             return None
 
-        if attribute == 'treasuryStock':
+        if concept == 'treasuryStock':
             return None
 
-        if attribute == 'id':
+        if concept == 'id':
             return None
 
-        if attribute == 'key':
+        if concept == 'key':
             return None
 
-        if attribute == 'subkey':
+        if concept == 'subkey':
             return None
 
-        if attribute == 'updated':
+        if concept == 'updated':
             return None
     
     def constructFilings(self) -> dict:
         # TODO: setup to make it use 10Q forms instead of 10K if period='quarter'
         # use the entity public float to get a list of 10K filings
-        currency = entityPublicFloat = list(self.companyFacts['facts']['dei']['EntityPublicFloat']['units'])[0]
-        entityPublicFloat = self.companyFacts['facts']['dei']['EntityPublicFloat']['units'][currency]
+        self.currency = list(self.getConceptUnits('EntityPublicFloat', 'dei', True))[0]
+        entityPublicFloat = self.getConceptUnits('EntityPublicFloat', 'dei')
         filings = []
         for epf in entityPublicFloat:
             filings.append({
-                'currency': currency,
+                'currency': self.currency,
                 'endDate': epf['end'],
                 'filingType': epf['form'],
                 'filedDate': epf['filed'],
                 'fiscalDate': None, # TODO ??
                 'fiscalQuarter': 0, # TODO setup (1, 2, 3, 4 for 10Q forms [period='quarter])
+                'fiscalYear': epf['fy'] # fiscalYear means END OF YEAR DATA (ex: 2020 means Dec 31, 2020)
                 # 'fiscalYear': epf['fy'] + 1 # TODO figure out if + 1 is needed here...
-                'fiscalYear': int(epf['filed'].split('-')[0])
+                # 'fiscalYear': int(epf['filed'].split('-')[0])
             })
 
         return filings

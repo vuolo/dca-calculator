@@ -8,7 +8,7 @@ HEADERS = { 'User-Agent': 'Sample Company Name AdminContact@<sample company doma
 
 class Financials():
 
-    def __init__(self, ticker: str) -> None:
+    def __init__(self, ticker: str, period='annual') -> None:
         # convert ticker to cik
         self.cik = self.tickerToCIK(ticker)
         self.ticker = ticker.upper()
@@ -27,6 +27,7 @@ class Financials():
         self.companyFacts = requests.get(self.api_resource + self.endpoint, headers=HEADERS).json()
 
         # construct financial statements from company facts
+        self.period = period
         self.constructFinancials()
 
     def tickerToCIK(self, ticker: str) -> str:
@@ -47,7 +48,7 @@ class Financials():
     
     def constructFinancials(self) -> None:
         # setup generic aggregate financials dict for easy access to all financial variables
-        self.aggregateFinancials = fS.FinancialStatement(self.ticker, self.companyFacts).aggregateFinancials
+        self.aggregateFinancials = fS.FinancialStatement(self.ticker, self.companyFacts, self.period).aggregateFinancials
 
         # construct statements
         self.constructIncomeStatement()
@@ -55,13 +56,13 @@ class Financials():
         self.constructCashFlow()
 
     def constructIncomeStatement(self) -> None:
-        self.incomeStatement = iS.IncomeStatement(self.ticker, self.companyFacts)
+        self.incomeStatement = iS.IncomeStatement(self.ticker, self.companyFacts, self.period)
 
     def constructBalanceSheet(self) -> None:
-        self.balanceSheet =  bS.BalanceSheet(self.ticker, self.companyFacts)
+        self.balanceSheet =  bS.BalanceSheet(self.ticker, self.companyFacts, self.period)
 
     def constructCashFlow(self) -> None:
-        self.cashFlow =  cF.CashFlow(self.ticker, self.companyFacts)
+        self.cashFlow =  cF.CashFlow(self.ticker, self.companyFacts, self.period)
 
     def getFinancials(self) -> dict:
         return self.aggregateFinancials
