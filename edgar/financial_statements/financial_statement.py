@@ -1,12 +1,11 @@
-# TODO: if no yearly data exists, try to grab the last quarter that has data in it???
+import time
 
 class FinancialStatement:
 
-    def __init__(self, ticker: str, companyFacts: dict, period='annual', USE_DEPRECIATED=False) -> None:
+    def __init__(self, ticker: str, companyFacts: dict, period='annual', asReported=False) -> None:
         self.ticker = ticker
         self.companyFacts = companyFacts
         self.period = period
-        self.USE_DEPRECIATED = USE_DEPRECIATED
         self.currency = "USD" # USD by default
 
         self.aggregateFinancials = None
@@ -17,257 +16,135 @@ class FinancialStatement:
         self.construct()
 
     def construct(self) -> dict:
-        if not self.USE_DEPRECIATED: # TODO: remove USE_DEPRECIATED... IN ALL FILES!
-            return {}
-
         # setup return variable
         self.aggregateFinancials = {
             'ticker': self.ticker,
             'name': self.companyFacts['forms'][0]['EntityRegistrantName'],
             'financials': []
         }
-
-        print(self.aggregateFinancials)
         
         # print certain company fact for all forms
-        for form in self.companyFacts['forms']:
-            # TODO: EBITDA = OperatingIncomeLoss + DepreciationAmortizationAndAccretionNet (or DepreciationAndAmortization or DepreciationDepletionAndAmortization???)
-            # TODO: to find EBITDA, use whatever EBITDA value is calculated first (use order below)
-            fact = 'LongTermDebtFairValue' # TODO: look at LongTermDebtFairValue for longTermDebt value?
-            if fact in form.keys():
-                print(f"fiscalYear: {form['DocumentFiscalYearFocus']}, {fact}: {form[fact]}")
+        # for form in self.companyFacts['forms']:
+        #     # TODO: EBITDA = OperatingIncomeLoss + DepreciationAmortizationAndAccretionNet (or DepreciationAndAmortization or DepreciationDepletionAndAmortization???)
+        #     # TODO: to find EBITDA, use whatever EBITDA value is calculated first (use order below)
+        #     fact = 'LongTermDebtFairValue' # TODO: look at LongTermDebtFairValue for longTermDebt value?
+        #     if fact in form.keys():
+        #         print(f"fiscalYear: {form['DocumentFiscalYearFocus']}, {fact}: {form[fact]}")
 
-            fact = 'OperatingIncomeLoss'
-            if fact in form.keys():
-                print(f"fiscalYear: {form['DocumentFiscalYearFocus']}, {fact}: {form[fact]}")
+        #     fact = 'OperatingIncomeLoss'
+        #     if fact in form.keys():
+        #         print(f"fiscalYear: {form['DocumentFiscalYearFocus']}, {fact}: {form[fact]}")
 
-            fact = 'DepreciationDepletionAndAmortization'
-            if fact in form.keys():
-                print(f"fiscalYear: {form['DocumentFiscalYearFocus']}, {fact}: {form[fact]}")
-                print(f"fiscalYear: {form['DocumentFiscalYearFocus']}, {'EBITDA'}: {int(form['OperatingIncomeLoss']) + int(form['DepreciationDepletionAndAmortization'])}")
+        #     fact = 'DepreciationDepletionAndAmortization'
+        #     if fact in form.keys():
+        #         print(f"fiscalYear: {form['DocumentFiscalYearFocus']}, {fact}: {form[fact]}")
+        #         print(f"fiscalYear: {form['DocumentFiscalYearFocus']}, {'EBITDA'}: {int(form['OperatingIncomeLoss']) + int(form['DepreciationDepletionAndAmortization'])}")
 
-            fact = 'DepreciationAmortizationAndAccretionNet'
-            if fact in form.keys():
-                print(f"fiscalYear: {form['DocumentFiscalYearFocus']}, {fact}: {form[fact]}")
-                print(f"fiscalYear: {form['DocumentFiscalYearFocus']}, {'EBITDA'}: {int(form['OperatingIncomeLoss']) + int(form['DepreciationAmortizationAndAccretionNet'])}")
+        #     fact = 'DepreciationAmortizationAndAccretionNet'
+        #     if fact in form.keys():
+        #         print(f"fiscalYear: {form['DocumentFiscalYearFocus']}, {fact}: {form[fact]}")
+        #         print(f"fiscalYear: {form['DocumentFiscalYearFocus']}, {'EBITDA'}: {int(form['OperatingIncomeLoss']) + int(form['DepreciationAmortizationAndAccretionNet'])}")
 
-            fact = 'DepreciationAndAmortization'
-            if fact in form.keys():
-                print(f"fiscalYear: {form['DocumentFiscalYearFocus']}, {fact}: {form[fact]}")
-                print(f"fiscalYear: {form['DocumentFiscalYearFocus']}, {'EBITDA'}: {int(form['OperatingIncomeLoss']) + int(form['DepreciationAndAmortization'])}")
+        #     fact = 'DepreciationAndAmortization'
+        #     if fact in form.keys():
+        #         print(f"fiscalYear: {form['DocumentFiscalYearFocus']}, {fact}: {form[fact]}")
+        #         print(f"fiscalYear: {form['DocumentFiscalYearFocus']}, {'EBITDA'}: {int(form['OperatingIncomeLoss']) + int(form['DepreciationAndAmortization'])}")
             
-            print()
-        exit(0)
-
-        # filings are 10K forms if period='annual', and 10Q forms if period='quarter'
-        filings = self.constructFilings()
+        #     print()
 
         # begin building financials
-        for filing in filings:
+        for form in self.companyFacts['forms']:
             # construct template
             curFinancials = self.constructTemplate()
 
             # setup concepts
-            for concept in curFinancials.keys(): curFinancials[concept] = self.getConcept(concept, filing['fiscalYear'])
+            for concept in curFinancials.keys():
+                curFinancials[concept] = self.getConcept(concept, form)
 
             # append current financials
             self.aggregateFinancials['financials'].append(curFinancials)
 
         return self.aggregateFinancials
 
-    def getConceptVal(self, rawConcept: str, fiscalYear: int):
-        total_return_val = 0
-        if not self.hasConcept(rawConcept): return None
-        for unit in self.getConceptUnits(rawConcept):
-            if fiscalYear == unit['fy']:
-                if self.period == 'annual' and unit['form'] == '10-K':
-                    return unit['val'] or None
-                elif self.period == 'quarter' and unit['form'] == '10-Q':
-                    total_return_val += unit['val'] or 0
-        
-        return total_return_val
-                
-    def getConceptUnits(self, concept: str, factsType='us-gaap', raw=False) -> bool:
-        if raw: return self.companyFacts['facts'][factsType][concept]['units']
-        else: return self.companyFacts['facts'][factsType][concept]['units'][self.currency]
+    def getConceptVal(self, rawConcept: str, form: dict, type='int'):
+        return None if not self.hasConcept(rawConcept, form) else int(form[rawConcept]) if type == 'int' else form[rawConcept]
 
-    def hasConcept(self, concept: str, factsType='us-gaap') -> bool:
-        return concept in self.companyFacts['facts'][factsType].keys()
+    def hasConcept(self, rawConcept: str, form: dict) -> bool:
+        return rawConcept in form.keys()
 
-    def getConcept(self, concept: str, fiscalYear: int):
+    def getConcept(self, concept: str, form: dict):
         # TODO: finish implementation for all concepts
-        if concept == 'EBITDA':
-            # IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest????????
-            # income: 13510 (IncomeTaxesPaid or IncreaseDecreaseInIncomeTaxesReceivable or AccruedIncomeTaxesNoncurrent) + Depreciation & Amortization: (WeightedAverageNumberOfSharesOutstandingBasic?) 11152 + net interest expense: 2315 + income taxes: 6858
-            operatingIncome = self.getConceptVal('IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments', fiscalYear)
-            DA = self.getConceptVal('DepreciationAndAmortization', fiscalYear) or 0 # TODO: look into DepreciationAmortizationAndAccretionNet
-            # return operatingIncome + DA
-            return operatingIncome
-            # return DA
 
-            # # net income
-            # EB = self.getConceptVal('NetIncomeLoss', fiscalYear) or 0
-            # # interest
-            # I = self.getConceptVal('InterestExpenseDebtExcludingAmortization', fiscalYear) or 0
-            # # taxes
-            # T = self.getConceptVal('IncomeTaxExpenseBenefit', fiscalYear) or 0
-            # # depreciation + amortization
-            # DA = self.getConceptVal('DepreciationAndAmortization', fiscalYear) or 0 # TODO: look into DepreciationAmortizationAndAccretionNet
-            # print(f'EB: {EB}, I: {I}, T: {T}, DA: {DA} ({EB + I + T + DA})')
-            # return EB + I + T + DA
-
-        # # EBITDA formula 1: EBITDA = Operating Income + Depreciation & Amortization
-        # # > self.companyFacts['facts']['us-gaap']['OperatingIncomeLoss'] + self.companyFacts['facts']['us-gaap']['DepreciationAndAmortization']
-        # print("EBITDA (1): ")
-        # # print(self.companyFacts['facts']['us-gaap']['OperatingIncomeLoss'] + self.companyFacts['facts']['us-gaap']['DepreciationAndAmortization'])
-        # print(self.companyFacts['facts']['us-gaap']['OperatingIncomeLoss']["units"]["USD"][-6]['val'] + self.companyFacts['facts']['us-gaap']['DepreciationAndAmortization']["units"]["USD"][-6]['val'])
-        
-        # # "IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments"
-
-        if concept == 'accountsPayable': return self.getConceptVal('AccountsPayableCurrent', fiscalYear)
-
-        if concept == 'capitalSurplus': return self.getConceptVal('AdditionalPaidInCapitalCommonStock', fiscalYear)
-
-        if concept == 'cashChange':
-            return None
-
-        if concept == 'cashFlow': return self.getConceptVal('NetCashProvidedByUsedInOperatingActivities', fiscalYear)
-
-        if concept == 'cashFlowFinancing':
-            return None
-
-        if concept == 'changesInInventories':
-            return None
-
-        if concept == 'changesInReceivables':
-            return None
-
-        # TODO: verify if this is the right raw concept name to use
-        if concept == 'commonStock': return self.getConceptVal('CommonStockValue', fiscalYear)
-
-        if concept == 'costOfRevenue':
-            return None
-
+        # TODO: implement EBITDA
+        if concept == 'EBITDA': return None
+        if concept == 'accountsPayable': return self.getConceptVal('IncreaseDecreaseInAccountsPayable', form) # AccountsPayableCurrent?
+        if concept == 'capitalSurplus': return None
+        if concept == 'cashChange': return None
+        if concept == 'cashFlow': return self.getConceptVal('NetCashProvidedByUsedInOperatingActivities', form)
+        if concept == 'cashFlowFinancing': return self.getConceptVal('NetCashProvidedByUsedInFinancingActivities', form)
+        if concept == 'changesInInventories': return self.getConceptVal('IncreaseDecreaseInInventories', form)
+        if concept == 'changesInReceivables':  return self.getConceptVal('IncreaseDecreaseInAccountsReceivable', form)
+        # TODO: commonStock gets 'Common Equity (Total)' from WSJ cash-flow financials sheet... ASK JONNY IF THIS IS THE RIGHT VALUE WE WANT
+        if concept == 'commonStock': return self.getConceptVal('StockholdersEquity', form)
+        # TODO: verify if this is the right value w/ jonny
+        if concept == 'costOfRevenue': return self.getConceptVal('CostOfGoodsAndServicesSold', form)
         if concept == 'currency': return self.currency
-
-        if concept == 'currentAssets': return self.getConceptVal('AssetsCurrent', fiscalYear)
-
-        if concept == 'currentCash':
-            return None
-
-        if concept == 'currentDebt':
-            return None
-
-        if concept == 'currentLongTermDebt': return self.getConceptVal('LongTermDebtCurrent', fiscalYear)
-
-        if concept == 'depreciation': return self.getConceptVal('Depreciation', fiscalYear)
-
-        if concept == 'dividendsPaid':
-            return None
-
-        if concept == 'ebit':
-            return None
-
-        if concept == 'exchangeRateEffect':
-            return None
-
-        if concept == 'filingType':
-            return None
-
-        if concept == 'fiscalDate':
-            return None
-
-        if concept == 'fiscalQuarter': return 0 if self.period == 'annual' else None # TODO: find current quarter
-
-        if concept == 'fiscalYear': return fiscalYear
-
-        if concept == 'goodwill': return self.getConceptVal('Goodwill', fiscalYear)
-
-        if concept == 'grossProfit': return self.getConceptVal('GrossProfit', fiscalYear)
-
-        if concept == 'incomeTax':
-            return None
-
-        if concept == 'intangibleAssets':
-            return None
-
-        if concept == 'inventory': return self.getConceptVal('InventoryNet', fiscalYear)
-
-        if concept == 'interestIncome':
-            return None
-
-        if concept == 'investingActivityOther':
-            return None
-
-        if concept == 'investments':
-            return None
-
-        if concept == 'longTermDebt':
-            # TODO: figure out how to get CORRECT long term debt from MSFT... LongTermDebtAndCapitalLeaseObligations / LongTermDebt???
-            return self.getConceptVal('LongTermDebt', fiscalYear)
-
-        if concept == 'longTermInvestments':
-            return None
-
-        if concept == 'minorityInterest':
-            return None
-
-        if concept == 'netBorrowings':
-            return None
-
-        if concept == 'netIncome':
-            return None
-
-        if concept == 'netIncomeBasic':
-            return None
-
-        if concept == 'netTangibleAssets':
-            return None
-
-        if concept == 'operatingExpense':
-            return None
-
-        if concept == 'operatingIncome':
-            return None
-
-        if concept == 'operatingRevenue':
-            return None
-
-        if concept == 'otherAssets':
-            return None
-
-        if concept == 'otherCurrentAssets':
-            return None
-
-        if concept == 'otherCurrentLiabilities':
-            return None
-
-        if concept == 'otherIncomeExpenseNet':
-            return None
-
-        if concept == 'otherLiabilities':
-            return None
-
-        if concept == 'pretaxIncome':
-            return None
-
-        if concept == 'propertyPlantEquipment':
-            return None
-
-        if concept == 'receivables':
-            return None
-
-        if concept == 'reportDate':
-            return None
-
-        if concept == 'researchAndDevelopment':
-            return None
-
+        if concept == 'currentAssets': return self.getConceptVal('AssetsCurrent', form)
+        # TODO: ask jonny if we want 'Cash' or 'Cash & Short Term Investments' from WSJ balance-sheet... etc..
+        if concept == 'currentCash': return self.getConceptVal('Cash', form)
+        # TODO: ask jonny what this value is... short term or long term debt? bc next value asks for long term debt...
+        if concept == 'currentDebt': return self.getConceptVal('DebtCurrent', form)
+        if concept == 'currentLongTermDebt': return self.getConceptVal('LongTermDebtCurrent', form)
+        if concept == 'depreciation': return self.getConceptVal('Depreciation', form)
+        # TODO: check w/ jonny to see if this is the right value
+        if concept == 'dividendsPaid': return self.getConceptVal('PaymentsOfDividendsCommonStock', form)
+        # TODO: implement EBIT
+        if concept == 'ebit': return None
+        if concept == 'exchangeRateEffect': return None
+        if concept == 'filingType': return self.getConceptVal('DocumentType', form, type='str')
+        if concept == 'fiscalDate': return self.getConceptVal('DocumentPeriodEndDate', form, type='str')
+        if concept == 'fiscalQuarter': return self.getConceptVal('DocumentFiscalPeriodFocus', form, type='str')
+        if concept == 'fiscalYear': return self.getConceptVal('DocumentFiscalYearFocus', form)
+        if concept == 'goodwill': return self.getConceptVal('Goodwill', form)
+        if concept == 'grossProfit': return self.getConceptVal('GrossProfit', form)
+        if concept == 'incomeTax': return self.getConceptVal('IncomeTaxExpenseBenefit', form)
+        if concept == 'intangibleAssets': return None
+        if concept == 'inventory': return self.getConceptVal('InventoryNet', form)
+        # TODO: check interestIncome variable w/ jonny...
+        if concept == 'interestIncome': return self.getConceptVal('InterestPaidNet', form)
+        # TODO: check if this variable uses PaymentsForProceedsFromOtherInvestingActivities or NetCashProvidedByUsedInInvestingActivities
+        if concept == 'investingActivityOther': return self.getConceptVal('PaymentsForProceedsFromOtherInvestingActivities', form)
+        # TODO: verify if PaymentsToAcquireOtherInvestments is the right raw concept
+        if concept == 'investments': return self.getConceptVal('PaymentsToAcquireOtherInvestments', form)
+        # TODO: figure out how to get CORRECT long term debt from MSFT... LongTermDebtAndCapitalLeaseObligations / LongTermDebt???
+        if concept == 'longTermDebt': return self.getConceptVal('LongTermDebtFairValue', form)
+        # TODO: this is probs wrong so check this variable...
+        if concept == 'longTermInvestments': return self.getConceptVal('MarketableSecuritiesNoncurrent', form)
+        if concept == 'minorityInterest': return None
+        if concept == 'netBorrowings': return None
+        if concept == 'netIncome': return self.getConceptVal('NetIncomeLoss', form)
+        if concept == 'netIncomeBasic': return None
+        if concept == 'netTangibleAssets': return None
+        if concept == 'operatingExpense': return self.getConceptVal('OperatingExpenses', form)
+        if concept == 'operatingIncome': return self.getConceptVal('OperatingIncomeLoss', form)
+        if concept == 'operatingRevenue': return None
+        # TODO: ask jonny if OtherAssetsNoncurrent is the right raw concept name?
+        if concept == 'otherAssets': return self.getConceptVal('OtherAssetsNoncurrent', form)
+        if concept == 'otherCurrentAssets': return self.getConceptVal('OtherAssetsCurrent', form)
+        if concept == 'otherCurrentLiabilities': return None
+        if concept == 'otherIncomeExpenseNet': return None
+        # TODO: check if this variable is correct
+        if concept == 'otherLiabilities': return self.getConceptVal('OtherLiabilitiesNoncurrent', form)
+        if concept == 'pretaxIncome': return self.getConceptVal('IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest', form)
+        # NET = 'Property, Plant, & Equipment Gross' - 'Property, Plant, & Equipment Accumulated Depreciation'
+        if concept == 'propertyPlantEquipment': return self.getConceptVal('PropertyPlantAndEquipmentNet', form)
+        if concept == 'receivables': return self.getConceptVal('AccountsReceivableNetCurrent', form)
+        if concept == 'reportDate': return self.getConceptVal('DocumentPeriodEndDate', form, type='str')
+        if concept == 'researchAndDevelopment': return self.getConceptVal('ResearchAndDevelopmentExpense', form, type='str')
         if concept == 'retainedEarnings':
             return None
 
-        if concept == 'revenue':
-            return None
+        if concept == 'revenue': return self.getConceptVal('SalesRevenueNet', form)
 
         if concept == 'sellingGeneralAndAdmin':
             return None
@@ -281,8 +158,7 @@ class FinancialStatement:
         if concept == 'shortTermInvestments':
             return None
 
-        if concept == 'symbol':
-            return None
+        if concept == 'symbol': return self.getConceptVal('TradingSymbol', form, type='str')
 
         if concept == 'totalAssets':
             return None
@@ -305,38 +181,13 @@ class FinancialStatement:
         if concept == 'treasuryStock':
             return None
 
-        if concept == 'id':
-            return None
-
-        if concept == 'key':
-            return None
-
-        if concept == 'subkey':
-            return None
-
-        if concept == 'updated':
-            return None
+        if concept == 'id': return 'FINANCIALS'
+        if concept == 'key': return self.getConceptVal('TradingSymbol', form, type='str')
+        if concept == 'subkey': return self.period
+        if concept == 'updated': return time.time()
     
-    def constructFilings(self) -> dict:
-        # TODO: setup to make it use 10Q forms instead of 10K if period='quarter'
-        # use the entity public float to get a list of 10K filings
-        self.currency = list(self.getConceptUnits('EntityPublicFloat', 'dei', True))[0]
-        entityPublicFloat = self.getConceptUnits('EntityPublicFloat', 'dei')
-        filings = []
-        for epf in entityPublicFloat:
-            filings.append({
-                'currency': self.currency,
-                'endDate': epf['end'],
-                'filingType': epf['form'],
-                'filedDate': epf['filed'],
-                'fiscalDate': None, # TODO ??
-                'fiscalQuarter': 0, # TODO setup (1, 2, 3, 4 for 10Q forms [period='quarter])
-                'fiscalYear': epf['fy'] # fiscalYear means END OF YEAR DATA (ex: 2020 means Dec 31, 2020)
-                # 'fiscalYear': epf['fy'] + 1 # TODO figure out if + 1 is needed here...
-                # 'fiscalYear': int(epf['filed'].split('-')[0])
-            })
-
-        return filings
+        # base case
+        return None
 
     def constructTemplate(self) -> dict:
         return {
@@ -411,8 +262,9 @@ class FinancialStatement:
             "updated": None, # 1671015835008
         }
 
-    def get(self, raw=False) -> dict:
-        return self if raw else self.aggregateFinancials if self.aggregateFinancials != None else self.incomeStatement if self.incomeStatement != None else self.balanceSheet if self.balanceSheet != None else self.cashFlow if self.cashFlow != None else None
+    def get(self, asReported=False) -> dict:
+        # TODO: add functionality for asReported
+        return self if asReported else self.aggregateFinancials if self.aggregateFinancials != None else self.incomeStatement if self.incomeStatement != None else self.balanceSheet if self.balanceSheet != None else self.cashFlow if self.cashFlow != None else None
 
 # ------------------------------------ IEX CLOUD RAW DATA:
 # "AccountsPayableCurrent" : 6932000000,

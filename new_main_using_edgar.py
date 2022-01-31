@@ -5,7 +5,7 @@ from edgar.client import EdgarClient
 edgarClient = EdgarClient()
 
 # Fetch financial information using ticker symbol
-ticker = 'HD'
+ticker = 'AAPL'
 period = 'annual'
 financials = edgarClient.financials(ticker, period)
 
@@ -14,4 +14,5 @@ aggregateFinancials = financials.getFinancials()
 # balanceSheet = financials.getBalanceSheet()
 # cashFlow = financials.getCashFlow()
 
-[print(f"\n{ticker}'s {financial['fiscalYear']} (Fiscal Year) EBITDA: \n{financial['EBITDA']}") for financial in aggregateFinancials['financials']]
+pprint(aggregateFinancials)
+# [print(f"\n{ticker}'s {financial['fiscalYear']} (Fiscal Year) EBITDA: \n{financial['EBITDA']}") for financial in aggregateFinancials['financials']]
