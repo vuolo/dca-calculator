@@ -1,3 +1,4 @@
+from os import stat
 import numpy as np # numerical computing library
 import pandas as pd # data science library
 from edgar.financials import Financials
@@ -276,8 +277,73 @@ class Parameters():
         self.totalDCAScore += self.parameterAnswers[-1]
         self.totalEvaluatedParameters += 1
 
+    # ----------- 6. (Treasury Stock Adjusted) Debt to Shareholder’s Equity Ratio
+    # [6.1] Has Negative Shareholder\'s Equity For Any Given Year?
+    # > If the value for Shareholder’s Equity was negative any given year over the past 4 years disregard this parameter.
+    # >> SCORING: N/A → If Shareholders Equity is negative any given year over the past 4 years disregard this parameter.
+    # [6.2] Good Average Treasury Stock Adjusted Debt to Shareholder\'s Equity Ratio (≤ 1.0)?
+    # > Over the past 4 years, pull values of Total Liabilities from the BS, Total Shareholder’s Equity from the BS, and Treasury Stock from the BS in the equation below.
+    # > Adjusted DSER =Total Liabilities / (Shareholder's Equity + Treasury Stock)
+    # > Companies with a “DCA” generally have adjusted DSER values of  < 1.0 (ideally < 0.8)
+    # > The value for Treasury Stock will be represented as a negative number under common equity on the BS. Turn that number positive and add it to Shareholder’s Equity on the bottom side of the equation.
+    # >> SCORING: +1 → TSA-DSER ≤ 1.0.
+    # [6.3] Ideal Adjusted Treasury Stock to Debt to Shareholders Ratio (≤ 0.8)?
+    # >> SCORING: +1 → TSA-DSER ≤ 0.8.
     def calcParameter6(self) -> None:
-        return
+        # add parameter title to column
+        self.columns.append('[6.1] Has Negative Shareholder\'s Equity For Any Given Year?')
+
+        # get shareholders equities
+        shareholderEquities = []
+        numYearsSkippedShareholdersEquity = 0
+        hasNegativeShareholdersEquity = 0
+        for i in range(0, len(self.financialStatements)):
+            # validate we are comparing actual numbers and not against missing data
+            if not self.financialStatements[i]['shareholderEquity']:
+                numYearsSkippedShareholdersEquity += 1
+                continue
+
+            # append shareholder equity
+            shareholderEquities.append(self.financialStatements[i]['shareholderEquity'])
+
+            # check for negative shareholders equity
+            if shareholderEquities[i - numYearsSkippedShareholdersEquity] < 0:
+                hasNegativeShareholdersEquity = 1
+
+        # add parameter answer to series
+        self.parameterAnswers.append(1 if hasNegativeShareholdersEquity else 0)
+        self.series.append('Yes; Disregard Parameters 6.2 and 6.3' if self.parameterAnswers[-1] == 1 else 'N/A' if self.parameterAnswers[-1] == -1 else 'No; Continue With Parameters 6.2 to 6.3')
+
+        # add parameter title to column
+        self.columns.append('[6.2] Good Average Treasury Stock Adjusted Debt to Shareholder\'s Equity Ratio (≤ 1.0)?')
+
+        # calculate average DSER (Debt to Shareholder's Equity)
+        dsers = []
+        for statement in self.financialStatements:
+            # validate we are comparing actual numbers and not against missing data
+            if not statement['totalLiabilities'] or not statement['shareholderEquity']: continue
+
+            # TODO: validate treasury stock value is correct...
+            # TODO: IMPORTANT: TREASURY STOCK VALUE IS WRONG???? or None... check this!
+            dsers.append(statement['totalLiabilities'] / (statement['shareholderEquity'] + (statement['treasuryStock'] or 0)))
+        average_dser = sum(dsers) / len(dsers)
+
+        # add parameter answer to series
+        self.parameterAnswers.append(-1 if hasNegativeShareholdersEquity else 1 if average_dser <= 1.0 else 0)
+        self.series.append('Yes (1/1)' if self.parameterAnswers[-1] == 1 else 'N/A' if self.parameterAnswers[-1] == -1 else 'No (0/1)')
+        if not hasNegativeShareholdersEquity:
+            self.totalDCAScore += self.parameterAnswers[-1]
+            self.totalEvaluatedParameters += 1
+
+        # add parameter title to column
+        self.columns.append('[6.3] Ideal Adjusted Treasury Stock to Debt to Shareholders Ratio (≤ 0.8)?')
+
+        # add parameter answer to series
+        self.parameterAnswers.append(-1 if hasNegativeShareholdersEquity else 1 if average_dser <= 0.8 else 0)
+        self.series.append('Yes (1/1)' if self.parameterAnswers[-1] == 1 else 'N/A' if self.parameterAnswers[-1] == -1 else 'No (0/1)')
+        if not hasNegativeShareholdersEquity:
+            self.totalDCAScore += self.parameterAnswers[-1]
+            self.totalEvaluatedParameters += 1
 
     def calcParameter7(self) -> None:
         return
