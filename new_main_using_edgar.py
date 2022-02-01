@@ -1,5 +1,6 @@
 from pprint import pprint
 from edgar.client import EdgarClient
+from dca.client import DCAClient
 
 # Initialize the Edgar Client
 edgarClient = EdgarClient()
@@ -9,10 +10,18 @@ ticker = 'CBOE'
 period = 'annual'
 financials = edgarClient.financials(ticker, period)
 
-aggregateFinancials = financials.getFinancials()
+# Initialize the DCA Client
+dcaClient = DCAClient(financials)
+
+# Run parameters on financial data
+result = dcaClient.getParametersResult()
+
+pprint(result)
+
+# aggregateFinancials = financials.getFinancials()
 # incomeStatement = financials.getIncomeStatement()
 # balanceSheet = financials.getBalanceSheet()
 # cashFlow = financials.getCashFlow()
 
-pprint(aggregateFinancials)
+# pprint(aggregateFinancials)
 # [print(f"\n{ticker}'s {financial['fiscalYear']} (Fiscal Year) EBITDA: \n{financial['EBITDA']}") for financial in aggregateFinancials['financials']]

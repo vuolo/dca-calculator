@@ -11,7 +11,7 @@ HEADERS = { 'User-Agent': 'Sample Company Name AdminContact@<sample company doma
 
 class Financials():
 
-    def __init__(self, ticker: str, period='annual', asReported=False) -> None:
+    def __init__(self, ticker: str, period='annual') -> None:
         self.period = period
 
         # convert ticker to cik
@@ -51,7 +51,8 @@ class Financials():
         }
 
         # TODO: remove this in post... THIS IS ONLY SO WE GET THE MOST RECENT PERIODS'S FILING for quick testing...
-        formIndexes = formIndexes[:2]
+        # limit to only get last 5 filings
+        formIndexes = formIndexes[:5]
 
         # get company facts from each form
         for formIndex in formIndexes:
@@ -77,7 +78,7 @@ class Financials():
                         print(f"Error Getting Filing for {self.ticker} (reported {submissions['filings']['recent']['reportDate'][formIndex]})")
 
             # display form data url
-            print(form_data_url)
+            print(f'Fetching Data from Filing: {form_data_url}')
 
             # setup company facts
             formCompanyFacts = {}
@@ -116,9 +117,9 @@ class Financials():
             cik = num_of_zeros * "0" + cik
         return cik
     
-    def constructFinancials(self, asReported=False) -> None:
+    def constructFinancials(self) -> None:
         # setup generic aggregate financials dict for easy access to all financial variables
-        self.aggregateFinancials = fS.FinancialStatement(self.ticker, self.companyFacts, self.period, asReported).aggregateFinancials
+        self.aggregateFinancials = fS.FinancialStatement(self.ticker, self.companyFacts, self.period).aggregateFinancials
 
         # TODO: construct statements
         # self.constructIncomeStatement()
@@ -134,7 +135,8 @@ class Financials():
     def constructCashFlow(self) -> None:
         self.cashFlow =  cF.CashFlow(self.ticker, self.companyFacts, self.period)
 
-    def getFinancials(self) -> dict:
+    def getFinancials(self, asReported=False) -> dict:
+        # TODO: add asReported support to display all raw concept names/values
         return self.aggregateFinancials
 
     def getIncomeStatement(self, asReported=False) -> dict | iS.IncomeStatement:

@@ -2,7 +2,7 @@ import time
 
 class FinancialStatement:
 
-    def __init__(self, ticker: str, companyFacts: dict, period='annual', asReported=False) -> None:
+    def __init__(self, ticker: str, companyFacts: dict, period='annual') -> None:
         self.ticker = ticker
         self.companyFacts = companyFacts
         self.period = period
@@ -117,7 +117,7 @@ class FinancialStatement:
         if concept == 'shareholderEquity': return self.getConceptVal('StockholdersEquity', form)
         if concept == 'shortTermDebt': return None
         if concept == 'shortTermInvestments': return None
-        if concept == 'symbol': return self.getConceptVal('TradingSymbol', form, type='str')
+        if concept == 'symbol': return self.ticker
         if concept == 'totalAssets': return self.getConceptVal('Assets', form)
         # TODO: make sure this variable is correct
         if concept == 'totalCash': return self.getConceptVal('Cash', form)
@@ -127,7 +127,7 @@ class FinancialStatement:
         if concept == 'totalRevenue': return self.getConceptVal('SalesRevenueNet', form)
         if concept == 'treasuryStock': return self.getConceptVal('TreasuryStockCommonValue', form)
         if concept == 'id': return 'FINANCIALS'
-        if concept == 'key': return self.getConceptVal('TradingSymbol', form, type='str')
+        if concept == 'key': return self.ticker
         if concept == 'subkey': return self.period
         if concept == 'updated': return int(round(time.time()))
     
@@ -136,68 +136,68 @@ class FinancialStatement:
 
     def constructTemplate(self) -> dict:
         return {
-            "EBITDA": None, # 17719601200,
-            "accountsPayable": None, # 42998973564,
-            "capitalSurplus": None, # null,
-            "cashChange": None, # null,
-            "cashFlow": None, # 82243225634,
-            "cashFlowFinancing": None, # -90480740851,
-            "changesInInventories": None, # null,
-            "changesInReceivables": None, # null,
-            "commonStock": None, # 52683500776,
-            "costOfRevenue": None, # 41281698523,
-            "currency": None, # "USD",
-            "currentAssets": None, # 147408209562,
-            "currentCash": None, # 92433115477,
-            "currentDebt": None, # 14042702867,
-            "currentLongTermDebt": None, # null,
-            "depreciation": None, # 11091337897,
-            "dividendsPaid": None, # null,
-            "ebit": None, # 15229091974,
-            "exchangeRateEffect": None, # null,
-            "filingType": None, # "10-K",
-            "fiscalDate": None, # "2020-10-17",
-            "fiscalQuarter": None, # 4,
-            "fiscalYear": None, # 2020,
-            "goodwill": None, # 0,
-            "grossProfit": None, # 25476146025,
-            "incomeTax": None, # 2237447945,
-            "intangibleAssets": None, # 0,
-            "inventory": None, # 4110848973,
-            "interestIncome": None, # 653431048,
-            "investingActivityOther": None, # null,
-            "investments": None, # null,
-            "longTermDebt": None, # 90201000000,
-            "longTermInvestments": None, # 103250878098,
-            "minorityInterest": None, # 0,
-            "netBorrowings": None, # null,
-            "netIncome": None, # 13007112349,
-            "netIncomeBasic": None, # 13211528403,
-            "netTangibleAssets": None, # null,
-            "operatingExpense": None, # 51023064506,
-            "operatingIncome": None, # 14873382386,
-            "operatingRevenue": None, # null,
-            "otherAssets": None, # 43334740957,
-            "otherCurrentAssets": None, # 11337007423,
-            "otherCurrentLiabilities": None, # null,
-            "otherIncomeExpenseNet": None, # 45025988542,
-            "otherLiabilities": None, # null,
-            "pretaxIncome": None, # 15342982672,
-            "propertyPlantEquipment": None, # 37297136451,
-            "receivables": None, # 37549658022,
-            "reportDate": None, # "2020-10-18",
-            "researchAndDevelopment": None, # 5221387455,
-            "retainedEarnings": None, # 15481666532,
-            "revenue": None, # 64962762222,
-            "sellingGeneralAndAdmin": None, # 5160667378,
-            "shareholderEquity": None, # 65804482428,
-            "shortTermDebt": None, # 14085341819,
-            "shortTermInvestments": None, # null,
-            "symbol": None, # "AAPL",
-            "totalAssets": None, # 337635772114,
-            "totalCash": None, # 80433000000,
-            "totalDebt": None, # 112630000000,
-            "totalInvestingCashFlows": None, # -4319108499,
+            "EBITDA": None,
+            "accountsPayable": None,
+            "capitalSurplus": None,
+            "cashChange": None,
+            "cashFlow": None,
+            "cashFlowFinancing": None,
+            "changesInInventories": None,
+            "changesInReceivables": None,
+            "commonStock": None,
+            "costOfRevenue": None,
+            "currency": None,
+            "currentAssets": None,
+            "currentCash": None,
+            "currentDebt": None,
+            "currentLongTermDebt": None,
+            "depreciation": None,
+            "dividendsPaid": None,
+            "ebit": None,
+            "exchangeRateEffect": None,
+            "filingType": None,
+            "fiscalDate": None,
+            "fiscalQuarter": None,
+            "fiscalYear": None,
+            "goodwill": None,
+            "grossProfit": None,
+            "incomeTax": None,
+            "intangibleAssets": None,
+            "inventory": None,
+            "interestIncome": None,
+            "investingActivityOther": None,
+            "investments": None,
+            "longTermDebt": None,
+            "longTermInvestments": None,
+            "minorityInterest": None,
+            "netBorrowings": None,
+            "netIncome": None,
+            "netIncomeBasic": None,
+            "netTangibleAssets": None,
+            "operatingExpense": None,
+            "operatingIncome": None,
+            "operatingRevenue": None,
+            "otherAssets": None,
+            "otherCurrentAssets": None,
+            "otherCurrentLiabilities": None,
+            "otherIncomeExpenseNet": None,
+            "otherLiabilities": None,
+            "pretaxIncome": None,
+            "propertyPlantEquipment": None,
+            "receivables": None,
+            "reportDate": None,
+            "researchAndDevelopment": None,
+            "retainedEarnings": None,
+            "revenue": None,
+            "sellingGeneralAndAdmin": None,
+            "shareholderEquity": None,
+            "shortTermDebt": None,
+            "shortTermInvestments": None,
+            "symbol": None,
+            "totalAssets": None,
+            "totalCash": None,
+            "totalDebt": None,
+            "totalInvestingCashFlows": None,
             "totalLiabilities": None,
             "totalRevenue": None,
             "treasuryStock": None,
