@@ -64,6 +64,7 @@ class FinancialStatement:
         # TODO: ask jonny what this value is... short term or long term debt? bc next value asks for long term debt...
         if concept == 'currentDebt': return self.getConceptVal('DebtCurrent', form)
         if concept == 'currentLongTermDebt': return self.getConceptVal('LongTermDebtCurrent', form)
+        if concept == 'currentLiabilities': return self.getConceptVal('LiabilitiesCurrent', form)
         if concept == 'depreciation': return self.getConceptVal('Depreciation', form)
         # TODO: check w/ jonny to see if this is the right value
         if concept == 'dividendsPaid': return self.getConceptVal('PaymentsOfDividendsCommonStock', form)
@@ -86,7 +87,7 @@ class FinancialStatement:
         # TODO: verify if PaymentsToAcquireOtherInvestments is the right raw concept
         if concept == 'investments': return self.getConceptVal('PaymentsToAcquireOtherInvestments', form)
         # TODO: figure out how to get CORRECT long term debt from MSFT... LongTermDebtAndCapitalLeaseObligations / LongTermDebt???
-        if concept == 'longTermDebt': return self.getConceptVal('LongTermDebtFairValue', form)
+        if concept == 'longTermDebt': return self.getConceptVal('LongTermDebt', form) or self.getConceptVal('LongTermDebtFairValue', form) or self.getConceptVal('LongTermDebtNoncurrent', form)
         # TODO: this is probs wrong so check this variable...
         if concept == 'longTermInvestments': return self.getConceptVal('MarketableSecuritiesNoncurrent', form)
         if concept == 'minorityInterest': return None
@@ -151,6 +152,7 @@ class FinancialStatement:
             "currentCash": None,
             "currentDebt": None,
             "currentLongTermDebt": None,
+            "currentLiabilities": None,
             "depreciation": None,
             "dividendsPaid": None,
             "ebit": None,

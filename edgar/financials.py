@@ -80,6 +80,9 @@ class Financials():
             # display form data url
             print(f'Fetching Data from Filing: {form_data_url}')
 
+            # get report year to validate fetched data
+            reportYear = submissions['filings']['recent']['reportDate'][formIndex].split('-')[0]
+
             # setup company facts
             formCompanyFacts = {}
             for child in root.findall('./'):
@@ -89,7 +92,9 @@ class Financials():
                 # replace xml ns with nothing to get tag (company fact) name
                 companyFact = child.tag.replace(xmlns, '')
                 if companyFact not in formCompanyFacts.keys():
-                    formCompanyFacts[companyFact] = child.text
+                    # validate data is from current report year
+                    if 'contextRef' in child.attrib.keys() and reportYear in child.attrib['contextRef']:
+                        formCompanyFacts[companyFact] = child.text
 
             companyFacts['forms'].append(formCompanyFacts)
 
