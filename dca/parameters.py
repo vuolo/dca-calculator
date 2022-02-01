@@ -22,8 +22,8 @@ class Parameters():
         self.result = pd.DataFrame()
         self.aggregateFinancials = self.financials.getFinancials()
         self.financialStatements = self.aggregateFinancials['financials']
-        self.columns = ['Ticker']
-        self.series = [self.aggregateFinancials['ticker']]
+        self.columns = ['Ticker', 'Company Name']
+        self.series = [self.aggregateFinancials['ticker'], self.aggregateFinancials['name']]
         self.parameterAnswers = []
         self.totalDCAScore = 0
         self.totalEvaluatedParameters = 0
@@ -77,7 +77,7 @@ class Parameters():
 
                 # calculate & append inventory percent changes
                 inventoryPercentChanges.append((self.financialStatements[i]['inventory'] - self.financialStatements[i - 1]['inventory']) / self.financialStatements[i - 1]['inventory'])
-            averageInventoryPercentChange = sum(inventoryPercentChanges) / len(inventoryPercentChanges)
+            averageInventoryPercentChange = 0 if len(inventoryPercentChanges) == 0 else sum(inventoryPercentChanges) / len(inventoryPercentChanges)
 
         # calculate average ebitda percent change
         ebitdaPercentChanges = []
@@ -87,7 +87,7 @@ class Parameters():
 
             # calculate & append ebitda percent changes
             ebitdaPercentChanges.append((self.financialStatements[i]['EBITDA'] - self.financialStatements[i - 1]['EBITDA']) / self.financialStatements[i - 1]['EBITDA'])
-        averageEbitdaPercentChange = sum(ebitdaPercentChanges) / len(ebitdaPercentChanges)
+        averageEbitdaPercentChange = 0 if len(ebitdaPercentChanges) == 0 else sum(ebitdaPercentChanges) / len(ebitdaPercentChanges)
 
         # add parameter answer to series
         if not hasInventory:
@@ -126,16 +126,16 @@ class Parameters():
         self.columns.append('[2] Earning Power - History of EBITDA Covering Current Liabilities?')
 
         # get ebitdas & current liabilities
-        ebitdas = []
+        self.EBITDAs = []
         currentLiabilities = []
         for statement in self.financialStatements:
             if statement['EBITDA']:
-                ebitdas.append(statement['EBITDA'])
+                self.EBITDAs.append(statement['EBITDA'])
             if statement['currentLiabilities']:
                 currentLiabilities.append(statement['currentLiabilities'])
 
         # add parameter answer to series
-        self.parameterAnswers.append(1 if np.all(np.asarray(ebitdas) > np.asarray(currentLiabilities)) else 0)
+        self.parameterAnswers.append(1 if np.all(np.asarray(self.EBITDAs) > np.asarray(currentLiabilities)) else 0)
         self.series.append('Yes (1/1)' if self.parameterAnswers[-1] == 1 else 'N/A' if self.parameterAnswers[-1] == -1 else 'No (0/1)')
         self.totalDCAScore += self.parameterAnswers[-1]
         self.totalEvaluatedParameters += 1
@@ -153,25 +153,30 @@ class Parameters():
         # calculate average property/plant/equipment change
         propertyPlantEquipmentPercentChanges = []
         for i in range(1, len(self.financialStatements)):
+            # print(self.financialStatements[i]['propertyPlantEquipment'])
             # validate we are comparing actual numbers and not against missing data
             if not self.financialStatements[i]['propertyPlantEquipment'] or not self.financialStatements[i - 1]['propertyPlantEquipment']: continue
 
             # calculate & append ppe percent changes
             propertyPlantEquipmentPercentChanges.append((self.financialStatements[i]['propertyPlantEquipment'] - self.financialStatements[i - 1]['propertyPlantEquipment']) / self.financialStatements[i - 1]['propertyPlantEquipment'])
-        averagePropertyPlantEquipmentPercentChange = sum(propertyPlantEquipmentPercentChanges) / len(propertyPlantEquipmentPercentChanges)
+        averagePropertyPlantEquipmentPercentChange = 0 if len(propertyPlantEquipmentPercentChanges) == 0 else sum(propertyPlantEquipmentPercentChanges) / len(propertyPlantEquipmentPercentChanges)
+
+        # TODO: figure out why this is EMPTY for Home Depot (HD)
+        # print(propertyPlantEquipmentPercentChanges)
+        # print(averagePropertyPlantEquipmentPercentChange)
 
         # calculate number of outliers (to check for no major jumps/spikes)
         propertyPlantEquipmentOutliers = get_outliers(propertyPlantEquipmentPercentChanges, m=2.5)
         numOutliers = len(propertyPlantEquipmentOutliers)
 
         # get all goodwills values
-        goodwills = []
+        self.goodwills = []
         for statement in self.financialStatements:
             if statement['goodwill']:
-                goodwills.append(statement['goodwill'])
+                self.goodwills.append(statement['goodwill'])
 
         # check if company has goodwill reported
-        hasGoodwill = 1 if len(goodwills) > 0 else 0
+        hasGoodwill = 1 if len(self.goodwills) > 0 else 0
 
         # if outlier(s) present, check if goodwill also increase/decreased for the outlier's year(s)
         outliersGoodwillVerified = []
@@ -180,12 +185,12 @@ class Parameters():
                 for i in range(0, len(propertyPlantEquipmentOutliers)):
                     outlier_year_index = propertyPlantEquipmentPercentChanges.index(propertyPlantEquipmentOutliers[i])
                     if outlier_year_index == 0:
-                        if goodwills[1] - goodwills[0] >= 1000000: # check for at least million dollar increase
+                        if self.goodwills[1] - self.goodwills[0] >= 1000000: # check for at least million dollar increase
                             outliersGoodwillVerified.append(1) # mark as verified (million dollar increase)
                         else:
                             outliersGoodwillVerified.append(0) # mark as unverified
                     else:
-                        if goodwills[outlier_year_index] - goodwills[outlier_year_index - 1] >= 1000000: # check for million dollar increase
+                        if self.goodwills[outlier_year_index] - self.goodwills[outlier_year_index - 1] >= 1000000: # check for million dollar increase
                             outliersGoodwillVerified.append(1) # mark as verified (million dollar increase)
                         else:
                             outliersGoodwillVerified.append(0) # mark as unverified
@@ -220,7 +225,7 @@ class Parameters():
         for statement in self.financialStatements:
             if statement['EBITDA'] and statement['totalAssets']:
                 returnsOnTotalAssets.append(statement['EBITDA'] / statement['totalAssets'])
-        averageReturnsOnTotalAssets = sum(returnsOnTotalAssets) / len(returnsOnTotalAssets)
+        averageReturnsOnTotalAssets = 0 if len(returnsOnTotalAssets) == 0 else sum(returnsOnTotalAssets) / len(returnsOnTotalAssets)
 
         # add 4.1 parameter answer to series
         self.parameterAnswers.append(1 if averageReturnsOnTotalAssets >= 0.11 else 0)
@@ -256,7 +261,7 @@ class Parameters():
 
             # calculate & append ltd to ta ratios
             LTDToTARatios.append(statement['longTermDebt'] / statement['totalAssets'])
-        averageLTDToTARatio = sum(LTDToTARatios) / len(LTDToTARatios)
+        averageLTDToTARatio = 0 if len(LTDToTARatios) == 0 else sum(LTDToTARatios) / len(LTDToTARatios)
 
         # add parameter answer to series
         self.parameterAnswers.append(1 if averageLTDToTARatio <= 0.5 else 0)
@@ -271,17 +276,21 @@ class Parameters():
         lastYearsEBITDA = self.financialStatements[-1]['EBITDA']
         lastYearsLTD = self.financialStatements[-1]['longTermDebt']
 
-        # add parameter answer to series
-        self.parameterAnswers.append(1 if lastYearsLTD / lastYearsEBITDA <= 4 else 0)
+        # TODO: figure out what to do when there is no last year longTermDebt (SONY for ex...)
+        if not lastYearsLTD:
+            self.parameterAnswers.append(0)
+        else:
+            # add parameter answer to series
+            self.parameterAnswers.append(1 if lastYearsLTD / lastYearsEBITDA <= 4 else 0)
         self.series.append('Yes (1/1)' if self.parameterAnswers[-1] == 1 else 'N/A' if self.parameterAnswers[-1] == -1 else 'No (0/1)')
         self.totalDCAScore += self.parameterAnswers[-1]
         self.totalEvaluatedParameters += 1
 
     # ----------- 6. (Treasury Stock Adjusted) Debt to Shareholder’s Equity Ratio
-    # [6.1] Has Negative Shareholder\'s Equity For Any Given Year?
+    # [6.1] Has Negative Shareholder's Equity For Any Given Year?
     # > If the value for Shareholder’s Equity was negative any given year over the past 4 years disregard this parameter.
     # >> SCORING: N/A → If Shareholders Equity is negative any given year over the past 4 years disregard this parameter.
-    # [6.2] Good Average Treasury Stock Adjusted Debt to Shareholder\'s Equity Ratio (≤ 1.0)?
+    # [6.2] Good Average Treasury Stock Adjusted Debt to Shareholder's Equity Ratio (≤ 1.0)?
     # > Over the past 4 years, pull values of Total Liabilities from the BS, Total Shareholder’s Equity from the BS, and Treasury Stock from the BS in the equation below.
     # > Adjusted DSER =Total Liabilities / (Shareholder's Equity + Treasury Stock)
     # > Companies with a “DCA” generally have adjusted DSER values of  < 1.0 (ideally < 0.8)
@@ -296,7 +305,7 @@ class Parameters():
         # get shareholders equities
         shareholderEquities = []
         numYearsSkippedShareholdersEquity = 0
-        hasNegativeShareholdersEquity = 0
+        self.hasNegativeShareholdersEquity = 0
         for i in range(0, len(self.financialStatements)):
             # validate we are comparing actual numbers and not against missing data
             if not self.financialStatements[i]['shareholderEquity']:
@@ -308,30 +317,31 @@ class Parameters():
 
             # check for negative shareholders equity
             if shareholderEquities[i - numYearsSkippedShareholdersEquity] < 0:
-                hasNegativeShareholdersEquity = 1
+                self.hasNegativeShareholdersEquity = 1
 
         # add parameter answer to series
-        self.parameterAnswers.append(1 if hasNegativeShareholdersEquity else 0)
+        self.parameterAnswers.append(1 if self.hasNegativeShareholdersEquity else 0)
         self.series.append('Yes; Disregard Parameters 6.2 and 6.3' if self.parameterAnswers[-1] == 1 else 'N/A' if self.parameterAnswers[-1] == -1 else 'No; Continue With Parameters 6.2 to 6.3')
 
         # add parameter title to column
         self.columns.append('[6.2] Good Average Treasury Stock Adjusted Debt to Shareholder\'s Equity Ratio (≤ 1.0)?')
 
         # calculate average DSER (Debt to Shareholder's Equity)
-        dsers = []
+        DSERs = []
         for statement in self.financialStatements:
             # validate we are comparing actual numbers and not against missing data
             if not statement['totalLiabilities'] or not statement['shareholderEquity']: continue
 
             # TODO: validate treasury stock value is correct...
             # TODO: IMPORTANT: TREASURY STOCK VALUE IS WRONG???? or None... check this!
-            dsers.append(statement['totalLiabilities'] / (statement['shareholderEquity'] + (statement['treasuryStock'] or 0)))
-        average_dser = sum(dsers) / len(dsers)
+            # append dser
+            DSERs.append(statement['totalLiabilities'] / (statement['shareholderEquity'] + (statement['treasuryStock'] or 0)))
+        averageDSER = 0 if len(DSERs) == 0 else sum(DSERs) / len(DSERs)
 
         # add parameter answer to series
-        self.parameterAnswers.append(-1 if hasNegativeShareholdersEquity else 1 if average_dser <= 1.0 else 0)
+        self.parameterAnswers.append(-1 if self.hasNegativeShareholdersEquity else 1 if averageDSER <= 1.0 else 0)
         self.series.append('Yes (1/1)' if self.parameterAnswers[-1] == 1 else 'N/A' if self.parameterAnswers[-1] == -1 else 'No (0/1)')
-        if not hasNegativeShareholdersEquity:
+        if not self.hasNegativeShareholdersEquity:
             self.totalDCAScore += self.parameterAnswers[-1]
             self.totalEvaluatedParameters += 1
 
@@ -339,26 +349,163 @@ class Parameters():
         self.columns.append('[6.3] Ideal Adjusted Treasury Stock to Debt to Shareholders Ratio (≤ 0.8)?')
 
         # add parameter answer to series
-        self.parameterAnswers.append(-1 if hasNegativeShareholdersEquity else 1 if average_dser <= 0.8 else 0)
+        self.parameterAnswers.append(-1 if self.hasNegativeShareholdersEquity else 1 if averageDSER <= 0.8 else 0)
         self.series.append('Yes (1/1)' if self.parameterAnswers[-1] == 1 else 'N/A' if self.parameterAnswers[-1] == -1 else 'No (0/1)')
-        if not hasNegativeShareholdersEquity:
+        if not self.hasNegativeShareholdersEquity:
             self.totalDCAScore += self.parameterAnswers[-1]
             self.totalEvaluatedParameters += 1
 
+    # ----------- 7. Preferred Stock
+    # > Absence of Preferred Stock under common equity on the BS.
+    # >> SCORING: +1 → Absence of PS on BS.
     def calcParameter7(self) -> None:
-        return
+        # add parameter title to column
+        self.columns.append('[7] Absence of Preferred Stock?')
 
+        # get all preferred stocks values
+        preferredStocks = []
+        for statement in self.financialStatements:
+            # if data is missing, do nothing
+            if not statement['commonStock']: continue
+            
+            # append preferred stock
+            preferredStocks.append(statement['commonStock'])
+
+        # check if company has preferred stock
+        hasPreferredStock = 1 if len(preferredStocks) > 0 else 0
+
+        # add parameter answer to series
+        self.parameterAnswers.append(not hasPreferredStock)
+        self.series.append('Yes (1/1)' if self.parameterAnswers[-1] == 1 else 'N/A' if self.parameterAnswers[-1] == -1 else 'No (0/1)')
+        self.totalDCAScore += self.parameterAnswers[-1]
+        self.totalEvaluatedParameters += 1
+
+    # ----------- 8. Retained Earnings
+    # [8.1] Good Average Retained Earnings Growth Rate (≥ 7%)?
+    # > Find the percent change of the Retained Earnings pool from one year to the next over the past 4 years on the BS. (Eg. year 1 →  year 2, year 2 →  year 3, year 3 →  year 4)
+    # > Next, find the growth rate by taking the average of the percent changes over the past 4 years.
+    # >> SCORING: +1 → Growth Rate ≥ 7%.
+    # [8.2] Above Average Retained Earnings Growth Rate (≥ 13.5%)?
+    # >> SCORING: +1 → Growth Rate ≥ 13.5%.
+    # [8.3] Above Average Retained Earnings Growth Rate (≥ 17%)?
+    # >> SCORING: +1 → Growth Rate ≥ 17%.
     def calcParameter8(self) -> None:
-        return
+        # add parameter titles to column
+        self.columns.append('[8.1] Good Average Retained Earnings Growth Rate (≥ 7%)?')
+        self.columns.append('[8.2] Above Average Retained Earnings Growth Rate (≥ 13.5%)?')
+        self.columns.append('[8.3] Above Average Retained Earnings Growth Rate (≥ 17%)?')
 
+        # calculate average retained earnings
+        retainedEarningsPercentChanges = []
+        for i in range(1, len(self.financialStatements)):
+            # validate we are comparing actual numbers and not against missing data
+            if not self.financialStatements[i]['retainedEarnings'] or not self.financialStatements[i - 1]['retainedEarnings']: continue
+            
+            # calculate & append retained earnings percent changes
+            retainedEarningsPercentChanges.append((self.financialStatements[i]['retainedEarnings'] - self.financialStatements[i - 1]['retainedEarnings']) / self.financialStatements[i - 1]['retainedEarnings'])
+        averageRetainedEarningsPercentChange = 0 if len(retainedEarningsPercentChanges) == 0 else sum(retainedEarningsPercentChanges) / len(retainedEarningsPercentChanges)
+
+        # add 8.1 parameter answer to series
+        self.parameterAnswers.append(1 if averageRetainedEarningsPercentChange >= 0.07 else 0)
+        self.series.append('Yes (1/1)' if self.parameterAnswers[-1] == 1 else 'N/A' if self.parameterAnswers[-1] == -1 else 'No (0/1)')
+        self.totalDCAScore += self.parameterAnswers[-1]
+        self.totalEvaluatedParameters += 1
+
+        # add 8.2 parameter answer to series
+        self.parameterAnswers.append(1 if averageRetainedEarningsPercentChange >= 0.135 else 0)
+        self.series.append('Yes (1/1)' if self.parameterAnswers[-1] == 1 else 'N/A' if self.parameterAnswers[-1] == -1 else 'No (0/1)')
+        self.totalDCAScore += self.parameterAnswers[-1]
+        self.totalEvaluatedParameters += 1
+
+        # add 8.3 parameter answer to series
+        self.parameterAnswers.append(1 if averageRetainedEarningsPercentChange >= 0.17 else 0)
+        self.series.append('Yes (1/1)' if self.parameterAnswers[-1] == 1 else 'N/A' if self.parameterAnswers[-1] == -1 else 'No (0/1)')
+        self.totalDCAScore += self.parameterAnswers[-1]
+        self.totalEvaluatedParameters += 1
+
+    # ----------- 9. Treasury Stock
+    # [9] Presence of Treasury Stock?
+    # > Presence of Treasury Stock under common equity on the BS.
+    # >> SCORING: +1 → Presence of TS on BS.
     def calcParameter9(self) -> None:
-        return
-        
-    def calcParameter10(self) -> None:
-        return
+        # add parameter title to column
+        self.columns.append('[9] Presence of Treasury Stock?')
 
+        # get all treasury stocks values
+        treasuryStocks = []
+        for statement in self.financialStatements:
+            if statement['treasuryStock']:
+                treasuryStocks.append(statement['treasuryStock'])
+
+        # check if company has treasury stock
+        hasTreasuryStock = 1 if len(treasuryStocks) > 0 else 0
+
+        # add parameter answer to series
+        self.parameterAnswers.append(hasTreasuryStock)
+        self.series.append('Yes (1/1)' if self.parameterAnswers[-1] == 1 else 'N/A' if self.parameterAnswers[-1] == -1 else 'No (0/1)')
+        self.totalDCAScore += self.parameterAnswers[-1]
+        self.totalEvaluatedParameters += 1
+        
+    # ----------- 10. Return on Shareholder’s Equity
+    # [10] Good Average Return on Shareholder's Equity? (≥ 23%)
+    # > Over the past 4 years, use the values of EBITDA on the CFS and Total Shareholder’s Equity on the BS to form the equation below.
+    # > RSH = EBITDA / Total Shareholder's Equity
+    # > A company presenting an RSH value greater than 23%.
+    # > If the company has a negative value for Total Shareholder’s Equity you need to check if it is backed by a history of strong ebitda.
+    # > If it isn’t backed by this it is most likely a mediocre business so do not reward the point.
+    # >> SCORING: +1 → RSH  23%.
+    def calcParameter10(self) -> None:
+        # add parameter title to column
+        self.columns.append('[10] Good Average Return on Shareholder\'s Equity? (≥ 23%)')
+
+        # calculate average return on shareholder equity
+        returnsOnShareholdersEquity = []
+        for statement in self.financialStatements:
+            if statement['EBITDA'] and statement['shareholderEquity']:
+                returnsOnShareholdersEquity.append(statement['EBITDA'] / statement['shareholderEquity'])
+        averageReturnOnShareholdersEquity = 0 if len(returnsOnShareholdersEquity) == 0 else sum(returnsOnShareholdersEquity) / len(returnsOnShareholdersEquity)
+
+        # check if average rsh is greater than 23%
+        hasGoodAverageRSH = 1 if averageReturnOnShareholdersEquity >= 0.23 else 0
+
+        # if company has a negative shareholders equity AND doesn't have a 'strong' ebitda ('strong' means > 0) then DO NOT AWARD POINT
+        if hasGoodAverageRSH and self.hasNegativeShareholdersEquity:
+            hasGoodAverageRSH = 1 if np.all(np.asarray(self.EBITDAs) > 0) else 0
+
+        # add parameter answer to series
+        self.parameterAnswers.append(hasGoodAverageRSH)
+        self.series.append('Yes (1/1)' if self.parameterAnswers[-1] == 1 else 'N/A' if self.parameterAnswers[-1] == -1 else 'No (0/1)')
+        self.totalDCAScore += self.parameterAnswers[-1]
+        self.totalEvaluatedParameters += 1
+
+    # ----------- 11. Goodwill
+    # [11] Steady Rise in Goodwill?
+    # > Increasing values of Goodwill under assets on the balance sheet over the past 4 years.
+    # >> SCORING: +1 → Increasing value of GW.
     def calcParameter11(self) -> None:
-        return
+        # add parameter title to column
+        self.columns.append('[11] Steady Rise in Goodwill?')
+
+        if len(self.goodwills) <= 1:
+            self.parameterAnswers.append(-1)
+        else:
+            # calculate average retained earnings
+            goodwillPercentChanges = []
+            for i in range(1, len(self.financialStatements)):
+                # validate we are comparing actual numbers and not against missing data
+                if not self.financialStatements[i]['goodwill'] or not self.financialStatements[i - 1]['goodwill']: continue
+
+                # calculate & append goodwill percent change
+                goodwillPercentChanges.append((self.financialStatements[i]['goodwill'] - self.financialStatements[i - 1]['goodwill']) / self.financialStatements[i]['goodwill'])
+            averageGoodwillPercentChange = 0 if len(goodwillPercentChanges) == 0 else sum(goodwillPercentChanges) / len(goodwillPercentChanges)
+
+            # append parameter answer and update score
+            self.parameterAnswers.append(1 if averageGoodwillPercentChange > 0 else 0)
+            self.totalDCAScore += self.parameterAnswers[-1]
+            self.totalEvaluatedParameters += 1
+
+        # add parameter answer to series
+        self.series.append('Yes (1/1)' if self.parameterAnswers[-1] == 1 else 'N/A' if self.parameterAnswers[-1] == -1 else 'No (0/1)')
 
     def finalizeResults(self) -> None:
         # add total column at end

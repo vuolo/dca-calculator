@@ -2,28 +2,29 @@ from pprint import pprint
 from edgar.client import EdgarClient
 from dca.client import DCAClient
 
-# Initialize the Edgar Client
+# Initialize the Edgar Client & DCA Client
 edgarClient = EdgarClient()
+dcaClient = DCAClient()
 
-# Fetch financial information using ticker symbol
-ticker = 'CBOE'
+# Setup tickers and period to fetch
+tickers = [
+    'CBOE',
+    'AAPL',
+    'WMT',
+    'F',
+    'HD',
+    'SONY',
+    'KO'
+]
 period = 'annual'
-financials = edgarClient.financials(ticker, period)
 
-# Initialize the DCA Client
-dcaClient = DCAClient(financials)
+# Loop through each ticker
+for ticker in tickers:
+    # Fetch financial information
+    financials = edgarClient.financials(ticker, period)
+    
+    # Run parameter using fetched financial information
+    dcaClient.runParameters(financials)
 
-# pprint(financials.getFinancials())
-
-# Run parameters on financial data
-result = dcaClient.getParametersResult()
-
-pprint(result)
-
-# aggregateFinancials = financials.getFinancials()
-# incomeStatement = financials.getIncomeStatement()
-# balanceSheet = financials.getBalanceSheet()
-# cashFlow = financials.getCashFlow()
-
-# pprint(aggregateFinancials)
-# [print(f"\n{ticker}'s {financial['fiscalYear']} (Fiscal Year) EBITDA: \n{financial['EBITDA']}") for financial in aggregateFinancials['financials']]
+# Finally write calculated parameters to an excel document
+dcaClient.writeToExcel()

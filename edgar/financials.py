@@ -26,7 +26,7 @@ class Financials():
         self.endpoint = f'/submissions/CIK{self.cik}.json'
 
         # print url of data were processing
-        # print(self.api_resource + self.endpoint)
+        print(f'~ Now Fetching Filings for {self.ticker} ({self.companyName}): {self.api_resource + self.endpoint}')
 
         # request the company facts and decode it
         self.companyFacts = self.fetchCompanyFacts()
@@ -41,7 +41,8 @@ class Financials():
         # loop through forms and get all forms based on period
         formIndexes = []
         for i, form in enumerate(submissions['filings']['recent']['form']):
-            if form == ('10-K' if self.period == 'annual' else '10-Q'):
+            # 10-K: domestic companies, 20-F: foreign companies
+            if form == ('10-K' if self.period == 'annual' else '10-Q') or form == ('20-F' if self.period == 'annual' else '10-Q'):
                 formIndexes.append(i)
         
         # setup empty company facts obj
@@ -75,7 +76,9 @@ class Financials():
                     form_data_url = f"https://www.sec.gov/Archives/edgar/data/{self.cik}/{accession_number}/{document_name}"
                     root = ET.fromstring(requests.get(form_data_url, headers=HEADERS).text)
                     if root.tag == 'Error':
-                        print(f"Error Getting Filing for {self.ticker} (reported {submissions['filings']['recent']['reportDate'][formIndex]})")
+                        # TODO: figure out how to get foreign 20-F for SONY when cannot fetch filing
+                        print(f"> Error Fetching Filing for {self.ticker} ({self.companyName}): reported {submissions['filings']['recent']['reportDate'][formIndex]}")
+                        continue
 
             # display form data url
             print(f'Fetching Data from Filing: {form_data_url}')
@@ -92,7 +95,8 @@ class Financials():
                 # replace xml ns with nothing to get tag (company fact) name
                 companyFact = child.tag.replace(xmlns, '')
                 if companyFact not in formCompanyFacts.keys():
-                    # validate data is from current report year
+                    # validate data is from current fiscal year
+                    # TODO: replace report year with DocumentFiscalYearFocus (fiscal year)
                     if 'contextRef' in child.attrib.keys() and reportYear in child.attrib['contextRef']:
                         formCompanyFacts[companyFact] = child.text
 
@@ -100,7 +104,7 @@ class Financials():
 
         return companyFacts
 
-    def setupCIK(self):
+    def setupCIK(self) -> None:
         # sec provided list of tickers : cik
         self.ticker_resource = 'https://www.sec.gov/files/company_tickers.json'
         
@@ -124,7 +128,7 @@ class Financials():
     
     def constructFinancials(self) -> None:
         # setup generic aggregate financials dict for easy access to all financial variables
-        self.aggregateFinancials = fS.FinancialStatement(self.ticker, self.companyFacts, self.period).aggregateFinancials
+        self.aggregateFinancials = fS.FinancialStatement(self.ticker, self.companyFacts, self.period, self.companyName).aggregateFinancials
 
         # TODO: construct statements
         # self.constructIncomeStatement()

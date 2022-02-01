@@ -2,10 +2,11 @@ import time
 
 class FinancialStatement:
 
-    def __init__(self, ticker: str, companyFacts: dict, period='annual') -> None:
+    def __init__(self, ticker: str, companyFacts: dict, period='annual', companyName='') -> None:
         self.ticker = ticker
         self.companyFacts = companyFacts
         self.period = period
+        self.companyName = companyName
         self.currency = "USD" # USD by default
 
         self.aggregateFinancials = None
@@ -19,7 +20,7 @@ class FinancialStatement:
         # setup return variable
         self.aggregateFinancials = {
             'ticker': self.ticker,
-            'name': self.companyFacts['forms'][0]['EntityRegistrantName'],
+            'name': self.companyName,
             'financials': []
         }
 
@@ -44,7 +45,12 @@ class FinancialStatement:
         return rawConcept in form.keys()
 
     def getConcept(self, concept: str, form: dict):
-        if concept == 'EBITDA': return (self.getConceptVal('OperatingIncomeLoss', form) or 0) + (self.getConceptVal('DepreciationDepletionAndAmortization', form) or self.getConceptVal('DepreciationAmortizationAndAccretionNet', form) or self.getConceptVal('DepreciationAndAmortization', form) or self.getConceptVal('DepreciationAmortizationAndOther', form) or 0) 
+        if concept == 'EBITDA': # TODO: verify if below is correctly calculated...
+            # EBITDA = Net Income + Taxes + Interest Expense + Depreciation & Amortization
+            if not self.getConceptVal('OperatingIncomeLoss', form):
+                return (self.getConceptVal('NetIncomeLoss', form) or self.getConceptVal('ProfitLoss', form) or 0) + (self.getConceptVal('InterestExpense', form) or 0) + (self.getConceptVal('IncomeTaxExpenseBenefit', form) or 0) + (self.getConceptVal('DepreciationDepletionAndAmortization', form) or self.getConceptVal('DepreciationAmortizationAndAccretionNet', form) or self.getConceptVal('DepreciationAndAmortization', form) or self.getConceptVal('DepreciationAmortizationAndOther', form) or 0)
+            else: # EBITDA = Operating Income + Depreciation & Amortization
+                return (self.getConceptVal('OperatingIncomeLoss', form) or 0) + (self.getConceptVal('DepreciationDepletionAndAmortization', form) or self.getConceptVal('DepreciationAmortizationAndAccretionNet', form) or self.getConceptVal('DepreciationAndAmortization', form) or self.getConceptVal('DepreciationAmortizationAndOther', form) or 0)
         if concept == 'accountsPayable': return self.getConceptVal('IncreaseDecreaseInAccountsPayable', form) # AccountsPayableCurrent?
         if concept == 'capitalSurplus': return None
         if concept == 'cashChange': return None
@@ -81,6 +87,7 @@ class FinancialStatement:
         if concept == 'intangibleAssets': return None
         if concept == 'inventory': return self.getConceptVal('InventoryNet', form)
         # TODO: check interestIncome variable w/ jonny...
+        if concept == 'interestExpense': return self.getConceptVal('InterestExpense', form)
         if concept == 'interestIncome': return self.getConceptVal('InterestPaidNet', form)
         # TODO: check if this variable uses PaymentsForProceedsFromOtherInvestingActivities or NetCashProvidedByUsedInInvestingActivities
         if concept == 'investingActivityOther': return self.getConceptVal('PaymentsForProceedsFromOtherInvestingActivities', form)
@@ -92,7 +99,7 @@ class FinancialStatement:
         if concept == 'longTermInvestments': return self.getConceptVal('MarketableSecuritiesNoncurrent', form)
         if concept == 'minorityInterest': return None
         if concept == 'netBorrowings': return None
-        if concept == 'netIncome': return self.getConceptVal('NetIncomeLoss', form)
+        if concept == 'netIncome': return self.getConceptVal('NetIncomeLoss', form) or self.getConceptVal('ProfitLoss', form)
         if concept == 'netIncomeBasic': return None
         if concept == 'netTangibleAssets': return None
         if concept == 'operatingExpense': return self.getConceptVal('OperatingExpenses', form)
@@ -107,7 +114,7 @@ class FinancialStatement:
         if concept == 'otherLiabilities': return self.getConceptVal('OtherLiabilitiesNoncurrent', form)
         if concept == 'pretaxIncome': return self.getConceptVal('IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest', form)
         # NET = 'Property, Plant, & Equipment Gross' - 'Property, Plant, & Equipment Accumulated Depreciation'
-        if concept == 'propertyPlantEquipment': return self.getConceptVal('PropertyPlantAndEquipmentNet', form)
+        if concept == 'propertyPlantEquipment': return self.getConceptVal('PropertyPlantAndEquipmentNet', form) or self.getConceptVal('PropertyPlantandEquipmentandFinanceLeaseRightofUseAssetafterAccumulatedDepreciationandAmortization', form) or self.getConceptVal('PropertyPlantAndEquipmentAndFinanceLeaseRightOfUseAssetAfterAccumulatedDepreciationAndAmortization', form)
         if concept == 'receivables': return self.getConceptVal('AccountsReceivableNetCurrent', form)
         if concept == 'reportDate': return self.getConceptVal('DocumentPeriodEndDate', form, type='str')
         if concept == 'researchAndDevelopment': return self.getConceptVal('ResearchAndDevelopmentExpense', form, type='str')
@@ -166,6 +173,7 @@ class FinancialStatement:
             "incomeTax": None,
             "intangibleAssets": None,
             "inventory": None,
+            "interestExpense": None,
             "interestIncome": None,
             "investingActivityOther": None,
             "investments": None,
