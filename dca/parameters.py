@@ -28,6 +28,11 @@ class Parameters():
         self.totalDCAScore = 0
         self.totalEvaluatedParameters = 0
 
+        # base case
+        if len(self.financialStatements) == 0:
+            self.finalizeResults(False)
+            return
+
         # sort financial statements in ascending order to aid calculations
         self.financialStatements.reverse()
 
@@ -507,15 +512,18 @@ class Parameters():
         # add parameter answer to series
         self.series.append('Yes (1/1)' if self.parameterAnswers[-1] == 1 else 'N/A' if self.parameterAnswers[-1] == -1 else 'No (0/1)')
 
-    def finalizeResults(self) -> None:
-        # add total column at end
-        self.columns.append('Total Durable Competitve Advantage Score')
-        self.series.append(f'{self.totalDCAScore} / {self.totalEvaluatedParameters} ({int(self.totalDCAScore / self.totalEvaluatedParameters * 100)}%)')
+    def finalizeResults(self, hasFinancialStatements=True) -> None:
+        # add total score column, calculate total score value with base case
+        self.columns.insert(2, 'Total Durable Competitve Advantage Score')
+        self.series.insert(2, f'{self.totalDCAScore} / {self.totalEvaluatedParameters} ({int(self.totalDCAScore / self.totalEvaluatedParameters * 100)}%)' if hasFinancialStatements else 'N/A')
 
-        # TODO: remove this... display total durable competitive advantage score to terminal
-        # print(f'Total Durable Competitve Advantage Score: {self.totalDCAScore} / {self.totalEvaluatedParameters} ({int(self.totalDCAScore / self.totalEvaluatedParameters * 100)}%)')
+        # costruct dataframe
+        self.constructDataframe()
 
-        # setup dataframe
+        # display total durable competitive advantage score to terminal with base case
+        print('Total Durable Competitve Advantage Score: ' + (f'{self.totalDCAScore} / {self.totalEvaluatedParameters} ({int(self.totalDCAScore / self.totalEvaluatedParameters * 100)}%)' if hasFinancialStatements else 'N/A'))
+
+    def constructDataframe(self) -> None:
         self.series = pd.Series(self.series, index = self.columns)
         self.result = pd.DataFrame(columns = self.columns)
         self.result = self.result.append(self.series, ignore_index = True)

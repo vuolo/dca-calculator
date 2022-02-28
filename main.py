@@ -14,7 +14,25 @@ tickers = [
     'F',
     'HD',
     'SONY',
-    'KO'
+    'KO',
+    'GOOG',
+    'MCD',
+    'MCO',
+    'TSLA',
+    'MSFT',
+    'ZM',
+    'SNAP',
+    'DIS',
+    'NFLX',
+    'GPRO',
+    'BABA',
+    'CCL',
+    'PLTR',
+    'AMD',
+    'NVDA',
+    'SBUX',
+    'COIN', # no financial statements found..?
+    'T',
 ]
 period = 'annual'
 

@@ -54,6 +54,7 @@ class Financials():
         # TODO: remove this in post... THIS IS ONLY SO WE GET THE MOST RECENT PERIODS'S FILING for quick testing...
         # limit to only get last 5 filings
         formIndexes = formIndexes[:5]
+        # formIndexes = formIndexes[:2]
 
         # get company facts from each form
         for formIndex in formIndexes:
